@@ -39,6 +39,9 @@ checkpoints/
 .DS_Store
 Thumbs.db
 
+# GCC source (太大不上传)
+gcc-10.3.0/
+
 # Misc
 *.log
 nohup.out
