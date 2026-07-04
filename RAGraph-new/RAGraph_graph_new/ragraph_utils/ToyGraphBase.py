@@ -30,6 +30,8 @@ class ToyGraphBase:
         self.structure_weight = 0.5
         self.semantic_weight = 0.4
         self.ring_weight = 0.1
+        self.utility_weight = 0.0
+        self.utility_momentum = 0.9
         self.num_anchors = 16
         self.dis_q = 0.1
         # 以下变量需要在构图后赋值
@@ -38,6 +40,7 @@ class ToyGraphBase:
         self.resource_labels = None
         self.resource_positions = None
         self.resource_ring_feats = None
+        self.resource_utility = None
 
     def build_toy_graph(self, resource_dataset: TUDataset):
         self.resource_keys = []
@@ -65,6 +68,7 @@ class ToyGraphBase:
         self.resource_labels = torch.cat(self.resource_labels, dim=0)
         self.resource_positions = torch.cat(self.resource_positions, dim=0)
         self.resource_ring_feats = torch.cat(self.resource_ring_feats, dim=0)
+        self.resource_utility = torch.zeros(self.resource_keys.size(0), device=self.resource_keys.device)
 
     def _build_toy_graph_base(self, features, adj, label, complex_batch):
         device = next(self.pretrain_model.parameters()).device
@@ -131,7 +135,7 @@ class ToyGraphBase:
         self.resource_ring_feats.append(ring_mean.detach().clone())
 
     def retrieve(self, search_keys: Tensor, search_adj: Tensor, complex_batch, search_ring_feat: Tensor,
-                 add_noise: bool):
+                 add_noise: bool, return_indices: bool = False):
         B = search_keys.size(0)
 
         # === semantic similarity ===
@@ -169,6 +173,9 @@ class ToyGraphBase:
         )
         similarity_matrices = torch.stack([structure_sim, semantic_sim, ring_sim], dim=0)
         similarity_scores = torch.einsum('i,ijk->jk', similarity_weights, similarity_matrices)  # [B, num_toy]
+        if self.resource_utility is not None and self.utility_weight > 0:
+            utility_bias = self.resource_utility.unsqueeze(0).expand_as(similarity_scores)
+            similarity_scores = similarity_scores + self.utility_weight * utility_bias
 
         # === 修复重点：动态调整 retrieve_num ===
         retrieve_num = 2 * self.retrieve_num if add_noise else self.retrieve_num
@@ -188,7 +195,30 @@ class ToyGraphBase:
         if add_noise:
             rag_embeddings = self._add_noise(rag_embeddings)
 
+        if return_indices:
+            return rag_embeddings, rag_labels, rag_weights, topk_indices
         return rag_embeddings, rag_labels, rag_weights
+
+    @torch.no_grad()
+    def update_memory_utility(self, topk_indices: Tensor, target_labels: Tensor, rag_weights: Tensor):
+        """Update memory usefulness from training-label feedback.
+
+        This is a supervised memory calibration signal: memories whose labels
+        match the current training graph are upweighted; mismatched memories are
+        downweighted in proportion to their retrieval weights.
+        """
+        if self.resource_utility is None:
+            return
+        target = target_labels.view(-1, 1).to(topk_indices.device)
+        retrieved_y = self.resource_labels[topk_indices].argmax(dim=-1)
+        match = retrieved_y.eq(target).float()
+        delta = (2.0 * match - 1.0) * rag_weights.detach()
+        flat_idx = topk_indices.reshape(-1)
+        flat_delta = delta.reshape(-1).to(self.resource_utility.device)
+
+        old = self.resource_utility[flat_idx]
+        new = self.utility_momentum * old + (1.0 - self.utility_momentum) * flat_delta
+        self.resource_utility[flat_idx] = new.clamp(min=-1.0, max=1.0)
 
     def show(self):
         print("[ToyGraphBase Summary]")
