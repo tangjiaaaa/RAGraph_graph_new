@@ -1,0 +1,834 @@
+\section{Experiments}
+\subsection{Experimental Setup}
+\paragraph{Datasets}  
+We evaluate ReTAG on both static graphs and dynamic interaction graphs. 
+The static datasets cover molecular and protein graphs with varying sizes and label settings, 
+while the dynamic datasets consist of large-scale temporal interaction networks used for link prediction.
+
+\textbf{Static Datasets.}
+We consider four widely used benchmarks for graph-level and node-level prediction tasks:
+
+\begin{itemize}
+    \item \textbf{PROTEINS} \cite{protein_reference}: 
+    A dataset of 1,113 protein graphs representing structural interaction patterns. 
+    It is used for both node classification and graph classification tasks.
+
+    \item \textbf{COX2} \cite{rossi2015networkrepository}: 
+    A molecular graph dataset containing 467 chemical compounds related to COX-2 inhibitors. 
+    It is used for binary graph classification.
+
+    \item \textbf{ENZYMES} \cite{enzymes_reference}: 
+    A benchmark of 600 enzyme graphs categorized into six functional classes. 
+    It supports both node-level and graph-level classification.
+
+    \item \textbf{BZR} \cite{rossi2015networkrepository}: 
+    A dataset of 405 molecular graphs describing ligands for the benzodiazepine receptor. 
+    It is used for binary graph classification.
+\end{itemize}
+
+\textbf{Dynamic Datasets.}
+For temporal link prediction, we employ two large-scale dynamic interaction graphs, 
+constructed from time-ordered interaction logs:
+\begin{itemize}
+    \item \textbf{KOUBEI}: 
+    A nine-week user–store interaction graph containing hundreds of thousands of nodes and several million edges. 
+    It is used for temporal edge prediction.
+
+    \item \textbf{AMAZON}: 
+    A product–user interaction graph derived from weekly Amazon review logs. 
+    It contains more than two hundred thousand nodes and is used for dynamic link prediction.
+\end{itemize}
+A summary of the dataset statistics, including graph sizes, feature dimensions, and task types, is provided in Table~\ref{tab:datasets}.
+
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{5pt}
+\footnotesize
+\caption{Statistics of the experimental datasets.}
+\label{tab:datasets}
+
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cccc}
+\toprule
+\textbf{Statistics} & \multicolumn{2}{c}{\textbf{Dynamic Graphs}} & \multicolumn{4}{c}{\textbf{Static Graphs}} \\
+\cmidrule(r){2-3} \cmidrule(l){4-7}
+ & KOUBEI & AMAZON & PROTEINS & COX2 & ENZYMES & BZR \\
+\midrule
+Nodes / Graph      & 221,366   & 238,735   & 39.06 & 41.22 & 32.63 & 35.75 \\
+Edges / Graph      & 3986609 & 876237   & 72.82 & 43.45 & 62.14 & 38.36 \\
+Density            & 3.3e-4    & 6.2e-5    & 4.8e-2 & 2.6e-2 & 5.9e-2 & 3.0e-2 \\
+Graphs             & 1         & 1         & 1,113 & 467   & 600   & 405 \\
+Graph Classes      & --        & --        & 2     & 2     & 6     & 2 \\
+Node Features      & --        & --        & 3     & 1     & 18    & 3 \\
+\midrule
+Task               & Edge      & Edge      & Node, Graph & Graph & Node, Graph & Graph \\
+\bottomrule
+\end{tabular}
+} % end resizebox
+\end{table}
+
+
+% \paragraph{Comparison Methods}
+% To verify the effectiveness of ReTAG, we conduct comprehensive experiments across various graph learning tasks. For dynamic graphs, we include comparisons with 
+% \textit{GraphCL-based Methods}: LightGCN~\cite{he2020lightgcn}, SGL~\cite{wu2021sgl}, MixGCF~\cite{mixgcf2021}, SimGCL~\cite{simgcl2021}, 
+% \textit{Prompt-based}: GraphPro~\cite{liu2023graphprompt}, GraphPro+PRODIGY~\cite{feng2023prodigy}, and 
+% \textit{Retrieval-Augmented}: RAGraph~\cite{JiangQXZZ00X0W24}. 
+% For static graphs, we compare ReTAG with representative models, including 
+% \textit{GNN Baselines}: GCN~\cite{kipf2017gcn}, GraphSAGE~\cite{hamilton2017inductive}, GAT~\cite{velivckovic2018gat}, GIN~\cite{xu2019gin}, 
+% \textit{Retrieval-Augmented Variants}: RAGraph~\cite{JiangQXZZ00X0W24}, 
+% \textit{Prompt-based Variants}: GraphPrompt~\cite{xie2022graphprompt}, GraphPrompt+PRODIGY~\cite{feng2023prodigy}, and ProNoG~\cite{Yu2025ProNoG}.
+
+\paragraph{Comparison Methods}
+We compare ReTAG with representative baselines for both dynamic and static graph learning tasks.
+
+\textbf{Dynamic Graphs.}
+\begin{itemize}
+    \item \textit{GraphCL-based Methods}:
+    \textbf{LightGCN}~\cite{lightgcn_reference} linearly propagates embeddings for user–item recommendation. 
+    \textbf{SGL}~\cite{sgl_reference} adds self-supervised discrimination to enhance representation learning. 
+    \textbf{MixGCF}~\cite{mixgcf_reference} mixes synthetic negatives across layers for collaborative filtering. 
+    \textbf{SimGCL}~\cite{simgcl_reference} applies contrastive learning for robust dynamic link prediction.
+    \textbf{StabCF}~\cite{wu2026stabcf} proposes a stabilized training strategy for collaborative filtering that mitigates gradient oscillation in GNN-based recommenders.
+
+    \item \textit{Prompt-based Methods}:
+    \textbf{GraphPro}~\cite{graphpro_reference} introduces spatial–temporal prompts for dynamic graphs. 
+    \textbf{GraphPro+PRODIGY}~\cite{prodigy_reference} enhances prompting with in-context learning.
+
+    \item \textit{Retrieval-Augmented Methods}:
+    \textbf{RAGraph}~\cite{JiangQXZZ00X0W24} retrieves similar graphs via multi-dimensional similarity 
+    and injects external structural knowledge into the query graph.
+\end{itemize}
+
+\textbf{Static Graphs.}
+\begin{itemize}
+    \item \textit{GNN Baselines}:
+    \textbf{GCN}~\cite{gcn_reference} aggregates neighborhood information for node/graph classification. 
+    \textbf{GraphSAGE}~\cite{graphsage_reference} generates inductive embeddings via neighbor sampling. 
+    \textbf{GAT}~\cite{gat_reference} uses attention-weighted neighbor aggregation. 
+    \textbf{GIN}~\cite{gin_reference} applies MLP-based injective aggregation for expressive graph representations.
+
+    \item \textit{Retrieval-Augmented Variant}:
+    \textbf{RAGraph}~\cite{JiangQXZZ00X0W24} integrates retrieved structural priors to enhance GNN learning.
+
+    \item \textit{Prompt-based Variants}:
+    \textbf{GraphPrompt}~\cite{graphprompt_reference} employs task-specific prompts for unified graph pre-training. 
+    \textbf{GraphPrompt+PRODIGY}~\cite{prodigy_reference} introduces contextual prompting with in-context examples. 
+    \textbf{ProNoG}~\cite{yu2024nonhomophilic} generates node-specific prompts via multi-hop non-homophily patterns.
+    \textbf{GP2F}~\cite{he2026gp2f} performs cross-domain graph prompting with adaptive fusion of multiple pre-trained GNNs for few-shot graph adaptation.
+\end{itemize}
+
+
+
+
+
+\paragraph{Evaluation Metrics}
+For node and graph classification tasks, we report the classification accuracy.
+For dynamic link prediction, we follow prior work and use top-$K$ ranking metrics,
+including Recall@20 and nDCG@20, computed on the held-out test snapshots.
+\paragraph{Parameters Settings}
+We adopt a training–resource split: model training is performed on the labeled
+data, while retrieval is conducted from a disjoint resource set.
+For static graphs, we use a 50\%/30\%/20\%
+split of nodes (train/validation/test).
+For dynamic graphs, interaction snapshots are chronologically partitioned, and
+only past snapshots are used as the resource set for time-aware retrieval.
+Retrieval-based methods (e.g., PRODIGY, RAGraph) retrieve exclusively from
+the resource set to prevent information leakage, whereas other baselines are
+fine-tuned on the merged graph.
+All experiments are implemented in PyTorch and run on a single NVIDIA A100
+GPU (40GB).
+We use the Adam optimizer with learning rate $1\times10^{-3}$ and batch size 16.
+For classification tasks, the hidden dimension is set to 256, and the first stage
+of MTMP employs $L=2$ layers.
+Cell complexes are constructed from $k$-hop neighborhoods, where $k$ is
+selected on the validation set (typically $k\in\{2,3\}$).
+The CTCL module applies a 2-dimensional contrastive loss with weight
+$\lambda\in[0.1,0.4]$.
+For link prediction, the first stage of MTMP adopts a 3-layer architecture
+($L=3$) with 64-dimensional embeddings, and the whole model is trained
+end-to-end with both contrastive and retrieval modules.
+
+\subsection{Cellular Complex-Augmented Graph Results}
+% \paragraph{Overall Performance} 
+The experimental results of our model and baselines on node and graph classification for static graphs and on link prediction for dynamic graphs are summarized in Table~\ref{tab:static-results} and Table~\ref{tab:dynamic-results}. Based on the comparison with existing baselines, we draw the following observations:
+% \vspace{-8pt}
+\setlength{\leftmargini}{0.5em}
+\begin{itemize}
+   \item \textbf{Our proposed ReTAG achieves the best performance.} 
+ReTAG significantly outperforms all baselines on both static and dynamic graphs. 
+On static datasets, ReTAG achieves a relative improvement of 2.3\%–3.7\% in node classification accuracy and 1.9\%–4.4\% in graph classification accuracy over state-of-the-art methods, consistently achieving the highest performance across all tasks. 
+On dynamic benchmarks, ReTAG achieves relative gains of 2.7\%–6.7\% in Recall@20 and 2.3\%-6.2\% in nDCG@20 over strong baselines such as RAGraph/FT.
+These gains can be attributed to ReTAG's ability to incorporate high-dimensional topological knowledge via cell complex lifting and retrieve structured support from external graphs. 
+Its MTMP module enables hierarchical propagation across complex structures, while the CTCL loss regularizes representations by enforcing 2-cell consistency, jointly enhancing expressiveness and generalizability across tasks.
+
+
+
+% \vspace{-2pt}
+    \item \textbf{Retrieval-augmented topology reasoning is crucial for generalized graph learning.} 
+From Table~\ref{tab:static-results} and Table~\ref{tab:dynamic-results}, we observe that retrieval-augmented baselines (e.g., RAGraph/FT) consistently outperform standard GNNs and prompt-based variants, demonstrating that incorporating external knowledge via retrieval is vital for generalization. 
+However, these baselines often rely on shallow node- or edge-level similarity, limiting their ability to capture complex structural semantics. 
+ReTAG addresses this limitation by lifting graphs into higher-dimensional cell complexes and conducting retrieval based on both semantic and topological alignment. 
+This enables the model to obtain more informative and transferable support subgraphs. 
+With MTMP injection and CTCL regularization, ReTAG better integrates retrieved knowledge, yielding superior performance on various graph tasks.
+
+
+
+\end{itemize}
+\begin{table*}[ht]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\caption{Accuracy evaluation on node and graph classification. All tabular results (\%) are reported as mean±std across five runs. 
+The best results are \textbf{bolded} and the runner-ups are \underline{underlined}.}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+
+\multirow{2}{*}{\textbf{Methods}} 
+& \multicolumn{2}{c}{\textbf{Node Classification}} 
+& \multicolumn{4}{c}{\textbf{Graph Classification}} \\
+\cmidrule(lr){2-3}  % Node Classification 下划线
+\cmidrule(lr){4-7}  % Graph Classification 下划线
+& \textbf{PROTEINS (5-shot)} & \textbf{ENZYMES (5-shot)} 
+& \textbf{PROTEINS (5-shot)} & \textbf{COX2 (5-shot)} 
+ & \textbf{BZR (5-shot)} & \textbf{ENZYMES (5-shot)}\\
+\cmidrule(lr){1-7} 
+{\textit{GNN Baselines}} \\
+GCN        & 46.63$\pm$03.04 & 52.80$\pm$12.89 & 54.80$\pm$06.64  & 67.87$\pm$03.39  & 58.76$\pm$05.08 & 22.67$\pm$05.20 \\
+GraphSAGE  & 48.87$\pm$02.64 & 48.75$\pm$01.59  & 54.68$\pm$09.34 & 67.02$\pm$05.42  & 58.27$\pm$04.79 & 21.17$\pm$05.49 \\
+GAT        & 48.13$\pm$07.90 & 47.75$\pm$01.23  & 55.82$\pm$07.31  & 64.89$\pm$03.23 & 57.04$\pm$06.70 & 20.67$\pm$03.27\\
+GIN        & 49.61$\pm$01.58 & 48.82$\pm$01.58  & 56.17$\pm$08.58  & 62.77$\pm$02.85  & 56.54$\pm$04.20 & 21.10$\pm$02.53\\
+\midrule
+\multicolumn{7}{l}{\textit{GraphPrompt+ Variants}} \\
+Vanilla/NF    & 44.88$\pm$13.17 & 48.81$\pm$01.88  & 56.68$\pm$03.63  & 53.04$\pm$04.13   & 68.77$\pm$03.44 & 36.50$\pm$03.31\\
+Vanilla/FT    & 48.99$\pm$01.88  & 51.99$\pm$01.36  & 57.04$\pm$03.88  & 64.04$\pm$08.20   & 69.01$\pm$02.21 & 40.00$\pm$04.36\\
+PRODIGY/NF    & 47.32$\pm$08.12  & 43.80$\pm$14.03 & 53.48$\pm$06.72  & 53.97$\pm$10.34  & 67.18$\pm$08.93 & 22.12$\pm$13.84\\
+PRODIGY/FT    & 53.26$\pm$06.42  & 57.98$\pm$12.37 & 57.14$\pm$10.34 & 65.31$\pm$04.28   & 68.08$\pm$06.68 & 25.94$\pm$05.12\\
+ProNoG    & 52.89$\pm$11.76  & \underline{76.48}$\pm$06.23 & 61.63$\pm$08.01 & 58.03$\pm$14.28   & 62.26$\pm$12.27 & 37.91$\pm$05.64\\
+GP2F    & 58.43$\pm$02.07  & 49.69$\pm$01.35 & 58.88$\pm$01.39 & 56.73$\pm$07.68   & 58.75$\pm$10.93 & 23.25$\pm$02.78\\
+\midrule
+\multicolumn{7}{l}{\textit{Retrieval-Augmented Variants}} \\
+RAGRAPH/NF  & 56.12$\pm$04.11  & 75.92$\pm$01.72  & 58.48$\pm$03.93  & 55.32$\pm$04.15   & \underline{77.53}$\pm$05.26 & 38.17$\pm$03.39\\
+RAGRAPH/FT & \underline{58.74}$\pm$00.87  & 75.74$\pm$01.92  & \underline{62.33}$\pm$02.52  & \underline{76.60}$\pm$02.30  & 76.79$\pm$05.02 & \underline{47.71}$\pm$06.88\\
+\midrule
+
+\textbf{ReTAG(Ours)} & \textbf{60.91}$\pm$01.79  & \textbf{78.26}$\pm$01.57  & \textbf{64.30}$\pm$02.21  & 
+\textbf{78.09}$\pm$02.57  & \textbf{79.01}$\pm$03.49  & \textbf{49.83}$\pm$04.72\\
+\bottomrule
+\end{tabular}
+}
+
+\label{tab:static-results}
+\end{table*}
+\begin{table}[t]
+\centering
+\caption{Performance Evaluation (\%) on Link Prediction.}
+\label{tab:dynamic-results}
+
+\footnotesize
+\setlength{\tabcolsep}{3.2pt}
+\renewcommand{\arraystretch}{0.92}
+
+\begin{tabular}{lcccc}
+\toprule
+\multirow{2}{*}{\textbf{Methods}}  
+ & \multicolumn{2}{c}{\textbf{KOUBEI}} 
+ & \multicolumn{2}{c}{\textbf{AMAZON}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+ & \textbf{Recall@20} & \textbf{nDCG@20} 
+ & \textbf{Recall@20} & \textbf{nDCG@20} \\
+\midrule
+
+\multicolumn{5}{l}{\textit{GraphCL}} \\
+LightGCN  & 30.21$\pm$06.45 & 22.24$\pm$05.83 & 15.07$\pm$06.48 & 06.53$\pm$02.66 \\
+SGL       & 32.61$\pm$04.27 & 22.36$\pm$04.82 & 15.78$\pm$07.12 & 07.90$\pm$02.49 \\
+MixGCF    & 32.06$\pm$04.20 & 22.49$\pm$06.91 & 15.24$\pm$08.98 & 07.40$\pm$03.44 \\
+SimGCL    & 33.07$\pm$05.28 & 23.08$\pm$05.55 & 16.10$\pm$07.91 & 07.58$\pm$03.51 \\
+StableCF    & 32.42$\pm$02.01 & 17.55$\pm$01.37 & 13.59$\pm$05.28 & 05.27$\pm$04.64 \\
+\addlinespace[0.3ex]
+\midrule
+
+\multicolumn{5}{l}{\textit{GraphPro+}} \\
+Vanilla/NF   & 21.31$\pm$04.59 & 15.31$\pm$03.11 & 12.56$\pm$07.45 & 06.31$\pm$03.92 \\
+Vanilla/FT   & 33.96$\pm$04.13 & 24.66$\pm$02.78 & 18.14$\pm$07.55 & 08.73$\pm$03.74 \\
+PRODIGY/NF   & 21.66$\pm$03.21 & 14.82$\pm$03.92 & 11.88$\pm$02.61 & 05.84$\pm$01.84 \\
+PRODIGY/FT   & 33.46$\pm$04.70 & 23.28$\pm$03.40 & 16.72$\pm$04.28 & 08.09$\pm$02.66 \\
+\addlinespace[0.3ex]
+\midrule
+
+\multicolumn{5}{l}{\textit{Retrieval-Augmented}} \\
+RAGRAPH/NF   & 22.86$\pm$03.44 & 16.68$\pm$02.48 & 13.78$\pm$05.54 & 06.52$\pm$02.69 \\
+RAGRAPH/FT   & \underline{34.27}$\pm$03.93 & \underline{24.82}$\pm$02.69 
+              & \underline{18.32}$\pm$07.45 & \underline{09.09}$\pm$03.89 \\
+\addlinespace[0.3ex]
+\midrule
+
+\textbf{ReTAG (Ours)}
+ & \textbf{35.21}$\pm$03.21 & \textbf{25.39}$\pm$02.23
+ & \textbf{19.54}$\pm$08.04 & \textbf{09.65}$\pm$04.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \begin{figure}[t]
+% \centering
+
+% % ===== 左图：k-hop =====
+% \begin{minipage}{0.48\linewidth}
+%     \centering
+%     \begin{tikzpicture}
+%     \begin{axis}[
+%         width=\linewidth,
+%         height=4.8cm,
+%         xlabel={k-hop},
+%         ylabel={Accuracy (\%)},
+%         ymin=60, ymax=80,
+%         xtick={1,2,3,4},
+%         ytick={60,62.5,65,67.5,70,72.5,75,77.5,80},
+%         tick label style={font=\scriptsize},
+%         label style={font=\scriptsize},
+%         grid=both,
+%         grid style={line width=0.4pt, dashed, gray!50},
+%         axis lines=box,
+%         axis line style={black, line width=0.3pt},
+%         tick style={gray!60},
+%         line width=0.8pt
+%     ]
+%     % PROTEINS
+%     \addplot[blue, mark=*, thick] coordinates {
+%         (1, 62.8) (2, 64.0) (3, 64.3) (4, 62.5)
+%     };
+%     % BZR
+%     \addplot[teal, mark=triangle*, thick] coordinates {
+%         (1, 78.2) (2, 78.8) (3, 79.0) (4, 78.3)
+%     };
+%     % COX2
+%     \addplot[orange, mark=square*, thick] coordinates {
+%         (1, 75.1) (2, 78.1) (3, 77.0) (4, 74.9)
+%     };
+%     \end{axis}
+%     \end{tikzpicture}
+% \end{minipage}
+% \hfill
+% % ===== 右图：Contrastive Loss Weight =====
+% \begin{minipage}{0.48\linewidth}
+%     \centering
+%     \begin{tikzpicture}
+%     \begin{axis}[
+%         width=\linewidth,
+%         height=4.8cm,
+%         xlabel={CTCL Loss Weight($\alpha$)},
+%         ylabel={Accuracy (\%)},
+%         ymin=60, ymax=80,
+%         xtick={0,0.1,0.2,0.3,0.4,0.5},
+%         ytick={60,62.5,65,67.5,70,72.5,75,77.5,80},
+%         legend to name=sharedlegend,
+%         legend columns=3,
+%         legend style={font=\scriptsize, /tikz/every even column/.append style={column sep=0.4cm}},
+%         tick label style={font=\scriptsize},
+%         label style={font=\scriptsize},
+%         grid=both,
+%         grid style={line width=0.4pt, dashed, gray!50},
+%         axis lines=box,
+%         axis line style={black, line width=0.3pt},
+%         tick style={gray!60},
+%         line width=0.8pt
+%     ]
+%     % PROTEINS
+%     \addplot[blue, mark=*, thick] coordinates {
+%         (0, 61.5) (0.1, 63.2) (0.2, 63.5) (0.3, 63.8) (0.4, 64.3) (0.5, 62.8)
+%     };
+%     \addlegendentry{PROTEINS}
+%     % BZR
+%     \addplot[teal, mark=triangle*, thick] coordinates {
+%         (0, 78.2) (0.1, 78.8) (0.2, 79.0) (0.3, 78.5) (0.4, 78.2) (0.5, 77.6)
+%     };
+%     \addlegendentry{BZR}
+%     % COX2
+%     \addplot[orange, mark=square*, thick] coordinates {
+%         (0, 75.5) (0.1, 76.6) (0.2, 78.1) (0.3, 77.0) (0.4, 75.7) (0.5, 75.1)
+%     };
+%     \addlegendentry{COX2}
+%     \end{axis}
+%     \end{tikzpicture}
+% \end{minipage}
+
+% \ref{sharedlegend} 
+
+% \caption{
+% Accuracy with varying k-hop size (left) and CTCL loss weight (right) on PROTEINS, BZR, and COX2.
+% }
+% \label{fig:hyperparam-study}
+% \end{figure}
+
+\begin{figure}[t]
+    \centering
+    % 子图 (a)
+    \subfloat[]{
+        \includegraphics[width=0.47\linewidth]{Pics/Hyper_khop.pdf}
+        \label{fig:khop}
+    }
+    \hfil
+    % 子图 (b)
+    \subfloat[]{
+        \includegraphics[width=0.47\linewidth]{Pics/Hyper_ctcl.pdf}
+        \label{fig:ctcl}
+    }
+
+    \caption{Accuracy under different settings. 
+    (a) Varying k-hop size. 
+    (b) Varying CTCL weight.}
+    \label{fig:analysis}
+\end{figure}
+
+
+
+% ($\alpha$)
+
+
+
+% \vspace{-5pt}
+\subsection{Hyper-parameter Sensitivity Study} 
+We investigate the sensitivity of ReTAG to two key hyper-parameters: the
+$k$-hop neighborhood size used for constructing cell complexes, and the
+cellular topological contrastive learning (CTCL) loss weight. These
+hyper-parameters respectively determine the receptive field of the lifted
+complex and the strength of 2-cell topological regularization. We vary
+$k$ from 1 to 4 and the CTCL loss weight from 0 to 0.5 to analyze their
+individual effects. The results are presented in Fig.~\ref{fig:analysis}.
+
+\begin{itemize}
+    \item \textbf{$k$-hop Neighborhood Size.}  
+    Fig.~\ref{fig:analysis}(a) shows the impact of varying the $k$-hop
+    receptive field. As $k$ increases, each cell complex incorporates
+    richer structural context and enables retrieval of larger supporting
+    subgraphs. However, excessively large $k$ introduces noisy or redundant
+    structures that degrade performance, while overly small $k$ fails to
+    capture essential topological motifs for retrieval and reasoning. This
+    highlights the importance of selecting a moderate $k$ to balance
+    completeness and noise.
+
+    \item \textbf{CTCL Loss Weight $\lambda$.}  
+    Fig.~\ref{fig:analysis}(b) examines the effect of the CTCL loss weight.
+    When $\lambda$ is too small, the model underutilizes discriminative
+    2-cell information, weakening topological regularization. Conversely,
+    large values of $\lambda$ overly constrain the optimization and conflict
+    with the primary learning objective, resulting in reduced accuracy. A
+    moderate CTCL weight therefore provides the best trade-off between
+    topological consistency and task-specific learning.
+\end{itemize}
+% We study the sensitivity of ReTAG to two key hyper-parameters: the number of hops ($k$) used to construct cell complexes, and the cellular topological contrastive learning (CTCL) loss weight. The $k$-hop value determines the receptive field of each complex, affecting the amount of structural context for retrieval and reasoning. The contrastive loss weight controls the strength of 2-cell topological regularization during training. We vary $k$ from 1 to 4, and the loss weight from 0 to 0.5 to assess their respective impacts. 
+% Fig.~\ref{fig:analysis}(a) shows the effect of different $k$-hop values on classification accuracy. As $k$ increases, the volume of retrieved knowledge expands accordingly. While larger $k$ introduces noisy or redundant substructures that hinder performance, excessively small $k$ may miss crucial topological patterns needed for effective retrieval.
+%  Fig.~\ref{fig:analysis}(b) illustrates the impact of varying the CTCL loss weight. Insufficient weight underutilizes the discriminative 2-dimensional information, while too large a weight overly constrains learning, interfering with the main optimization objective and degrading downstream performance. These trends highlight the importance of balancing topological regularization with task-specific learning in ReTAG.
+
+
+
+
+
+
+
+
+% \begin{table}[t]
+% \centering
+% \footnotesize
+% \caption{Ablation study on COX2 and PROTEINS datasets.}
+% \renewcommand{\arraystretch}{1.15}
+% \begin{tabular}{lcc}
+% \toprule
+% \textbf{Model Variant} & \textbf{COX2 (\%)} & \textbf{PROTEINS (\%)} \\
+% \midrule
+% w/o FCL         & 76.05$\pm$02.89 & 62.33$\pm$02.52 \\
+% w/o MTMP         & 76.21$\pm$01.97 & 62.45$\pm$03.19 \\
+% w/o CTCL   & 76.94$\pm$01.83 & 63.21$\pm$04.79 \\
+% \textbf{Full Model (ReTAG)}      & \textbf{78.09$\pm$02.57} & \textbf{64.30$\pm$02.21} \\
+% \bottomrule
+% \end{tabular}
+
+% \label{tab:ablation}
+% \end{table}
+% \vspace{5pt}  % 可以控制表格的位置，调整这个值让表格上下移动
+
+
+\subsection{Few-shot Generalization Study}
+We evaluate the few-shot performance of ReTAG under 1–5 shot settings 
+across four datasets (PROTEINS, BZR, ENZYMES, COX2), together with 
+representative baseline methods (RAGraph, Vanilla, GAT, GIN, GCN, 
+GraphSAGE). As shown in Fig.~\ref{fig:fewshot-study}, accuracy 
+generally improves as more labeled samples become available, following 
+the typical trend of metric-based adaptation under low-data regimes. 
+Across all datasets and shot levels, ReTAG maintains consistently strong 
+performance and remains competitive as supervision increases. These 
+results indicate that the proposed retrieval-augmented topological 
+modeling is effective in scenarios with limited labeled data.
+
+
+
+
+
+
+
+
+\begin{figure}[t]
+    \centering
+
+    % 第一行 (a) (b)
+    \subfloat[]{%
+        \includegraphics[width=0.49\linewidth]{Pics/Few_Shot_Performance_PROTEINS.pdf}%
+        \label{fig:fewshot-proteins}
+    }
+    \hfil
+    \hspace{-0.01\linewidth}%
+    \subfloat[]{%
+        \includegraphics[width=0.49\linewidth]{Pics/Few_Shot_Performance_BZR.pdf}%
+        \label{fig:fewshot-bzr}
+    }
+
+    \vspace{0.15cm}
+
+    % 第二行 (c) (d)
+    \subfloat[]{%
+        \includegraphics[width=0.49\linewidth]{Pics/Few_Shot_Performance_ENZYMES.pdf}%
+        \label{fig:fewshot-enzymes}
+    }
+    \hfil
+    \hspace{-0.01\linewidth}%
+    \subfloat[]{%
+        \includegraphics[width=0.49\linewidth]{Pics/Few_Shot_Performance_COX2.pdf}%
+        \label{fig:fewshot-cox2}
+    }
+
+    \caption{
+Few-shot accuracy comparison of ReTAG and baseline methods 
+(RAGraph, Vanilla, GAT, GIN, GCN, GraphSAGE) across four datasets:
+(a) PROTEINS, (b) BZR, (c) ENZYMES, and (d) COX2. 
+Results are reported under the 1–5 shot setting.
+}
+
+    \label{fig:fewshot-study}
+\end{figure}
+
+
+
+
+% \vspace{-9pt}
+\subsection{Ablation Study}  
+We evaluate three ablated variants of ReTAG: removing the Fundamental Cycle-Guided Complex Lifting (FCL), which eliminates 2-cell construction and reduces the model to an edge-based graph; discarding the Multi-dimensional Topological Message Passing (MTMP), which disables hierarchical propagation across cell dimensions; and removing the Cellular Topological Contrastive Learning (CTCL), which drops contrastive regularization over 2-cell representations. As shown in Table~\ref{tab:ablation}, we observe that:
+
+% \vspace{-8pt}
+\begin{itemize}
+   \item The performance drops when removing FCL, as eliminating 2-cells via fundamental cycles reduces the model to a purely edge-based graph. This shows that high-dimensional cycles are crucial for capturing richer structural context and stronger structural reasoning.
+    \item The model’s performance suffers when MTMP is discarded. Disabling MTMP restricts interactions to nodes and edges, preventing the model from reasoning over cycles and their associated higher-dimensional cells. This shows that MTMP is crucial for capturing complex topological dependencies and multi-dimensional context. %Without hierarchical propagation, information exchange is confined to the 1-skeleton, preventing nodes and edges from exploiting higher-dimensional cycles. This shows that MTMP is essential for integrating multi-dimensional context and capturing topological dependencies.
+    \item The performance of the model drops when removing CTCL. Without contrastive regularization over 2-cell representations, the model fails to enforce consistency among high-dimensional structures, leading to less discriminative embeddings. This shows that CTCL is essential for improving robustness and generalization in capturing cellular topology.
+
+\end{itemize}
+\begin{table}[t]
+\centering
+\caption{Ablation Study on COX2 and PROTEINS Datasets.}
+\label{tab:ablation}
+
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{0.92}
+
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model Variant} & \textbf{COX2 (\%)} & \textbf{PROTEINS (\%)} \\
+\midrule
+w/o FCL   & 76.05$\pm$02.89 & 62.33$\pm$02.52 \\
+w/o MTMP  & 76.21$\pm$01.97 & 62.45$\pm$03.19 \\
+w/o CTCL  & 76.94$\pm$01.83 & 63.21$\pm$04.79 \\
+
+\midrule
+\textbf{Full Model (ReTAG)} 
+          & \textbf{78.09}$\pm$02.57 
+          & \textbf{64.30}$\pm$02.21 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% w/o Retrieval  & 76.94$\pm$01.83 & 63.21$\pm$04.79 \\
+
+
+
+
+\subsection{Cycle Structure and Representation Analysis}
+\paragraph{Cycle Structure Analysis}
+To examine when ReTAG is expected to help, we analyze the cycle statistics
+of all datasets. Fig.~\ref{fig:cycle-analysis}(a) shows the fraction of
+nodes that participate in at least one cycle, revealing large variations
+in cycle density: molecular and protein graphs are cycle rich, whereas
+some benchmarks are almost tree-like, and large recommendation graphs lie
+in between with moderate cycle coverage. 
+Fig.~\ref{fig:cycle-analysis}(b) further shows that the number of
+fundamental cycles spans several orders of magnitude across datasets.
+
+Despite this diversity, ReTAG consistently outperforms baselines
+(Table~\ref{tab:static-results} and Table~\ref{tab:dynamic-results}),
+demonstrating its robustness across varying cycle densities. When cycles are
+abundant, ReTAG lifts informative motifs to 2-cells and propagates them
+through MTMP; when cycles are sparse, the model naturally reduces to an
+edge-centric encoder while still retaining the advantages of topology-aware retrieval.
+Together with the ablation results, these observations show that
+explicitly modeling fundamental cycles improves representation quality
+across heterogeneous topological distributions.
+
+\paragraph{Representation Visualization}
+To further inspect how cycle-aware lifting and MTMP shape the learned
+representations, we visualize graph-level embeddings using t-SNE from both
+real-world and controlled benchmarks. Fig.~\ref{fig:repr-vis} first reports
+the visualization on ENZYMES. The standard GCN baseline in
+Fig.~\ref{fig:repr-vis}(a) produces a largely isotropic cloud, where graphs
+from different classes are highly mixed and no clear global organization is
+formed. This pattern suggests that the encoder mainly relies on local
+neighborhood statistics and has limited ability to organize graphs by their
+higher-order topological structures.
+
+In contrast, the ReTAG embeddings in Fig.~\ref{fig:repr-vis}(b) concentrate
+along several smooth manifolds with more clearly separated branches. This
+indicates that ReTAG arranges enzyme graphs according to shared
+cycle-aware motifs: graphs with similar configurations of fundamental
+cycles are mapped to nearby positions along the same curve, whereas graphs
+with distinct cycle structures tend to occupy different segments of the
+manifold. Such geometry naturally arises from lifting fundamental cycles to
+2-cells and propagating information jointly over nodes, edges, and 2-cells
+via MTMP. Although class labels are not perfectly separated in two
+dimensions due to the structural heterogeneity within each enzyme class,
+ReTAG still significantly outperforms GCN in
+Table~\ref{tab:static-results}, confirming that explicit higher-dimensional
+cycle modeling yields more discriminative and topology-consistent graph
+representations.
+
+We further validate this observation with the controlled t-SNE study in
+Fig.~\ref{fig:motivation-tsne}, generated by the motivational experiment in
+which two 3-regular graph classes share the same number of nodes, edges,
+and degree statistics but differ in cycle topology: $K_{3,3}$ contains no
+triangles, whereas the triangular prism contains two triangular 2-cell
+motifs. Under conventional message passing, GCN and GAT produce heavily
+overlapped embeddings and achieve only random-level accuracy
+($50.07\%\pm3.41\%$ and $49.83\%\pm2.65\%$, respectively), while GraphSAGE
+shows only partial separation ($84.90\%\pm5.21\%$). Once explicit cycle
+features are injected as a ReTAG-like proxy for 2-cell information, the two
+classes become cleanly separated in the embedding space and the accuracy
+reaches $100.00\%\pm0.00\%$. This controlled visualization complements the
+ENZYMES result by isolating the source of improvement: cellular
+cycle-level information provides discriminative signals that are largely
+orthogonal to node/edge-level neighborhood aggregation.
+
+\begin{figure}[t]
+    \centering
+    % (a) Fraction of nodes in cycles
+    \subfloat[]{
+        \includegraphics[width=0.46\linewidth]{Pics/cycles_ratio.pdf}
+        \label{fig:cycle-coverage}
+    }
+    \hfil
+    \hspace{0.01\linewidth}%
+    % (b) Avg #cycles/graph (log scale)
+    \subfloat[]{
+        \includegraphics[width=0.46\linewidth]{Pics/cycles_count.pdf}
+        \label{fig:cycle-count}
+    }
+    \caption{
+    Cycle statistics across datasets.
+    (a) Fraction of nodes that belong to at least one cycle.
+    (b) Average number of fundamental cycles per graph (log scale).
+    }
+    \label{fig:cycle-analysis}
+\end{figure}
+
+
+
+
+
+
+
+
+\begin{figure}[t]
+  \centering
+  \subfloat[]{
+    \includegraphics[width=0.46\linewidth]{Pics/vis_ENZYMES_graph_emb_tsne_gcn.pdf}
+  }\hfill
+  \hspace{-0.94\linewidth}%
+  \subfloat[]{
+    \includegraphics[width=0.46\linewidth]{Pics/vis_ENZYMES_graph_emb_tsne_ReTAG8.pdf}
+  }
+  \caption{t-SNE visualization of graph-level embeddings on ENZYMES.
+  (a) The GCN baseline. 
+  (b) ReTAG.}
+  \label{fig:repr-vis}
+\end{figure}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{Pics/motivation_tsne.pdf}
+  \caption{Controlled t-SNE visualization on the motivational benchmark.
+  The two classes are 3-regular graphs with identical local degree
+  statistics but different cycle structures: $K_{3,3}$ has no triangles,
+  whereas the triangular prism contains triangular cycles. Conventional
+  message-passing models produce overlapped or only partially separated
+  embeddings, while the cycle-augmented ReTAG-like variant forms clearly
+  separated clusters.}
+  \label{fig:motivation-tsne}
+\end{figure*}
+
+\subsection{Case Study: Topology-Aware Retrieval on COX2}
+To better illustrate how ReTAG exploits cellular topologies during
+retrieval, we conduct a case study on a representative COX2 molecular
+graph. The left panel of Fig.~\ref{fig:case-study-cox2} shows the query
+graph, where three fundamental cycles (1--3) detected by FCL are lifted
+into 2-cells that serve as the foundational high-dimensional topological
+primitives for retrieval.
+In both the query and retrieved graphs, the yellow node marks
+the \emph{master 0-cell}, whose pivotal high-degree position serves as a
+structural anchor to align local neighborhoods across the lifted complexes.
+
+For the retrieved supports (right), we highlight matching 2-cells (dark-blue) and their branching environments (light-blue nodes, dashed edges). Although external to 2-cells, these branches contextualize motifs, distinguishing cycles with similar shapes but different surroundings. By explicitly visualizing this context, we verify the consistency of topological alignment around the master anchor.
+
+As shown in the right panel, the top-1 support closely replicates all
+three query 2-cells with highly consistent branching patterns, whereas
+lower-ranked supports capture only subsets of these motifs with
+increasingly divergent local contexts.
+This case study demonstrates that ReTAG aligns graphs by jointly
+leveraging high-dimensional cellular structures and their surrounding
+branching geometry, enabling retrieval to capture multi-level
+topological alignment beyond local adjacency.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Pics/COX2_case.pdf}
+    \caption{Topology-aware retrieval on a molecular graph from COX2.
+    Left: query graph with three fundamental cycles (1--3) extracted by
+    FCL and lifted to 2-cells (shaded).
+    Right: top-$4$ retrieved graphs, where shaded regions mark matching
+    2-cells; dark-blue nodes denote their 1-skeleton, and light-blue
+    nodes with dashed edges show surrounding branching context.
+    The yellow nodes mark the aligned master 0-cells across both the
+    query and retrieved graphs.}
+    \label{fig:case-study-cox2}
+\end{figure*}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsection{Complexity and Scalability Analysis}
+
+\paragraph{Computational Complexity}
+We analyze the asymptotic time and space complexity of ReTAG.
+Let $n = |V|$ and $m = |E|$ denote the numbers of nodes and edges in a
+graph, $r$ the number of 2-cells (fundamental cycles) in the lifted
+complex, $d$ the hidden dimension, $L$ the number of message-passing
+layers, $N_{\text{res}}$ the size of the resource pool, and $K$ the
+number of retrieved supports.
+
+The backbone encoder of ReTAG follows standard message passing with a
+per-layer cost of $\mathcal{O}(m d)$. Consequently, an $L$-layer
+encoder requires $\mathcal{O}(L m d)$ per forward pass, which is
+consistent with standard GCN and RAGraph-style baselines.
+Cell-complex lifting (spanning tree extraction and fundamental cycle
+basis construction) is performed offline in $\mathcal{O}(m + r)$ time
+and does not participate in backpropagation.
+During training and inference, the MTMP module operates on the lifted
+complex with a complexity of $\mathcal{O}((m + r) d)$ per layer.
+Since complexes are constructed based on local $k$-hop neighborhoods,
+$r$ is effectively bounded by a small constant. Thus, the overall MTMP
+cost remains linear with respect to $m$.
+Topology-aware retrieval computes similarities between a $d$-dimensional
+query and all $N_{\text{res}}$ resource keys to select top-$K$
+supports, costing $\mathcal{O}(N_{\text{res}} d)$, while the cellular
+topological contrastive loss is $\mathcal{O}(r d)$ per batch.
+Therefore, the online time complexity of ReTAG is linear in terms of
+the graph size and $N_{\text{res}}$, incurring only a moderate
+constant-factor overhead compared to conventional GNN baselines.
+
+\paragraph{Space Complexity}
+ReTAG stores node, edge, and 2-cell embeddings alongside the resource
+pool, resulting in a memory usage of
+$\mathcal{O}((n + m + r + N_{\text{res}}) d)$.
+Thus, both the time and space complexity of ReTAG scale linearly with
+the graph size and the number of retrieved resources.
+% \begin{table}[t]
+% \centering
+% \caption{Theoretical complexity and empirical efficiency comparison of different models.}
+% \label{tab:complexity}
+% \footnotesize
+% \setlength{\tabcolsep}{4pt}
+% \renewcommand{\arraystretch}{0.92}
+% \begin{tabular}{lcccc}
+% \toprule
+% \multirow{2}{*}{\textbf{Model}} 
+% & \multirow{2}{*}{\textbf{Time}} 
+% & \multirow{2}{*}{\textbf{Space}} 
+% & \multicolumn{2}{c}{\textbf{Train Time (s/epoch)}} \\
+% \cmidrule(lr){4-5}
+% & & & \textbf{COX2} & \textbf{KOUBEI} \\
+% \midrule
+% GCN 
+% & 1
+% & 1 
+% & -- & -- \\
+% RAGraph 
+% & 1
+% & 1
+% & -- & -- \\
+% \midrule
+% \textbf{ReTAG (ours)} 
+% & 1
+% & 1 
+% & \textbf{--} & \textbf{--} \\
+% \bottomrule
+% \end{tabular}
+% \end{table}

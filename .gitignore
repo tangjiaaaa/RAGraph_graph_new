@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.venv/
+
+# PyTorch
+*.pkl
+*.pt
+*.pth
+
+# Data (大文件不上传)
+data/
+raw/
+processed/
+fewshot_*/
+*.tar.gz
+*.zip
+
+# Model weights
+modelset/
+pretrained_weights/
+
+# Logs & Results
+logs/
+results/
+saved/
+checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+nohup.out

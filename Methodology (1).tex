@@ -1,0 +1,561 @@
+\section{The ReTAG Framework}
+\begin{figure*}[t]
+    %\vspace{-35pt} % 收紧页面顶部空白
+    \centering
+    \includegraphics[width=\textwidth]{Pics/model_v8.pdf}
+    %\captionsetup{skip=-15pt} % 图和caption的距离
+    \caption{The overview of Retrieval Cellular Topologies-Augmented Graph Learning Framework.}
+    \label{fig:model}
+    %\vspace{-5pt} % 可选：收紧caption与正文的间距
+\end{figure*}
+
+In this section, we present the architecture of ReTAG (illustrated in Fig.~\ref{fig:model}), a retrieval-augmented graph learning framework built upon multi-dimensional cellular topologies. ReTAG is composed of three key components: a \textit{Cellular Representation and Knowledge Extraction} module that lifts input graphs into cellular complexes and constructs a cell complex knowledge base; a \textit{Retrieval-Augmented Graph Inference} module that retrieves semantically and topologically aligned subcomplexes to guide graph learning; and a \textit{Cellular Topological Contrastive Learning} module that regularizes learning and enhances generalization through topology-aware objectives.
+\subsection{Cellular Representation and Knowledge Extraction}
+
+%To capture higher-order structural patterns beyond pairwise interactions, we lift the original graph into a \textbf{cell complex} $\mathcal{K}$ consisting of 0-cells (nodes), 1-cells (edges), and 2-cells (rings). Each $k$-cell represents a $k$-dimensional topological element, and message passing is defined across these dimensions.
+
+%\vspace{0.5em}
+\paragraph{Fundamental Cycle-Guided Complex Lifting}
+We construct a 2-dimensional regular cell complex from the task graph \( G = (V, E, T) \) by first treating it as a 1-dimensional Cell complex, where: Each vertex \( v \in V \) is a \( 0 \)-cell, forming the 0-skeleton $X^{(0)}$; Each edge \( (u, v) \in E \) is a \( 1 \)-cell attached to the \( 0 \)-skeleton, yielding the \( 1 \)-skeleton:
+\begin{equation}
+X^{(1)} = X^{(0)} \cup \{\, e \mid (u,v) \in E \,\}.
+\end{equation}
+
+To identify higher-dimensional structures, we first fix a spanning tree \(\mathcal{T} \subseteq G\). Since \(\mathcal{T}\) is contractible, we can collapse it to a single point via the quotient map:
+\begin{equation}
+\gamma : G \to G / \mathcal{T},
+\end{equation}
+which collapses the entire subtree \(\mathcal{T}\) to a single point. Here, \(G / \mathcal{T}\) denotes the quotient space obtained by identifying all vertices and edges of \(\mathcal{T}\) to a single point. 
+
+Under this contraction, each edge \( e = (u,v) \in E \setminus \mathcal{T} \) corresponds to a fundamental cycle formed by adding \(e\) to the collapsed tree point, as the non-tree edges become loops attached to that point. The preimage $\gamma^{-1}(e)$ recovers the unique cycle $c_e$ in the original graph, consisting of $e$ together with the tree path in $\mathcal{T}$. For each such cycle, we attach a 2-cell by choosing an attaching map:
+\begin{equation}
+\varphi_e : \partial D^2 \;\cong\; S^1 \;\longrightarrow\; c_e \subset X^{(1)},
+\end{equation}
+and extending it via a characteristic map
+\[
+\Phi_e : D^2 \longrightarrow X, \quad 
+\Phi_e|_{\partial D^2} = \varphi_e,
+\]
+where the attaching map
+\(
+\varphi_\alpha
+\)
+ glues the boundary of the 2-cell \(D^2\) onto the 1-skeleton \(X^{(1)}\), $x^2_e = \Phi_e(D^2)$ 
+defines the 2-cell corresponding to edge \( e \).
+
+%Formally, the 2-dimensional cell associated with \(e\) can be represented as the preimage of the loop created by \(e\) in the quotient space:
+%\begin{equation}
+%x^2_e = \varphi_\alpha\big(\gamma^{-1}(e)\big),
+%\end{equation}
+%where
+%\(
+%\varphi_\alpha : S^1 \cong \partial D^2 \to G^{(1)}
+%\)
+%is the attaching map that glues the boundary of the 2-cell \(D^2\) onto the 1-skeleton \(G^{(1)}\), mapping \(\partial D^2\) to the cycle formed by the non-tree edge \(e\) and the corresponding spanning tree path in \(\mathcal{T}\). %This extends the 1-dimensional skeleton by filling essential cycles with 2-dimensional cells, yielding a 2-dimensional cell complex that faithfully encodes the graph’s topological cycles.
+
+Formally, the collection of these 2-cells constitutes
+\begin{equation}
+X^{(2)} = \{ x^2_e \simeq D^2 \mid e = (u,v) \in E \setminus \mathcal{T} \},
+\end{equation}
+where each disk \(D^2\) is attached along its boundary \(\partial D^2 \cong S^1\) via the loop \(c_e \subset X^{(1)}\). %$X = X^{(0)} \cup X^{(1)} \cup X^{(2)}$ completes the construction of a 2-dimensional regular cell complex
+
+%This lifting operation completes the construction of a 2-dimensional regular cell complex:
+%\begin{equation}
+%    X = X^{(0)} \cup X^{(1)} \cup X^{(2)}.
+%\end{equation}
+
+\begin{proposition}
+\label{prop.homotopy}
+% (Proof in Appendix \ref{app.proof.homotopy}.) 
+$G/\mathcal{T}$ is homotopy-equivalent to $G$, and $\gamma$ induces an isomorphism on the first homology group $H_1(G;\mathbb{Z})$.
+\end{proposition}
+\begin{proof}
+\textbf{Contractibility of the spanning tree.}  
+A spanning tree $\mathcal{T}$ is connected and acyclic, hence it is contractible. 
+In topological terms, a contractible subspace can be continuously shrunk to a point within itself.
+
+\textbf{Collapsing a contractible subspace.}  
+Consider the quotient map $\gamma: G \to G/\mathcal{T}$ that identifies all points of $\mathcal{T}$ to a single vertex $v_0$.  
+Collapsing a contractible subspace is a deformation retraction up to homotopy: there exists a continuous map 
+$r: G \to G/\mathcal{T}$ and a homotopy 
+$H: G \times [0,1] \to G$ such that $H(x,0) = x$ and $H(x,1) = r(x)$ for all $x \in G$, with $r \circ \gamma \simeq \mathrm{id}_{G/\mathcal{T}}$.  
+Therefore, $G$ and $G/\mathcal{T}$ are homotopy-equivalent.
+
+\textbf{Induced isomorphism on first homology.}  
+Homotopy-equivalent spaces have isomorphic homology groups.  
+Hence the induced map 
+$\gamma_*: H_1(G;\mathbb{Z}) \to H_1(G/\mathcal{T};\mathbb{Z})$ 
+is an isomorphism.
+
+\textbf{Intuition in graph terms.}  
+The spanning tree $\mathcal{T}$ contains no cycles, so collapsing it does not remove or merge any cycles in $G$.  
+Each fundamental cycle in $G$ (formed by a non-tree edge and the unique tree path connecting its endpoints) is preserved in $G/\mathcal{T}$ as a loop based at the collapsed tree vertex.  
+Therefore, the first homology group $H_1(G)$ — which measures independent cycles — remains unchanged.
+\end{proof}
+
+
+
+
+
+
+
+
+\begin{proposition}
+\label{prop.fundamental_cycles}
+% (Proof in Appendix \ref{app.proof.fundamental_cycles}.) 
+Each non-tree edge $e \in E \setminus \mathcal{T}$ induces a unique fundamental cycle in $G$, which becomes a nontrivial loop in $G/\mathcal{T}$. 
+The collection of these loops forms a basis of the first homology group $H_1(G;\mathbb{Z})$, capturing all independent cycles and providing a concise topological summary of the graph.
+\end{proposition}
+\begin{proof}
+Let $G=(V,E)$ be a finite connected graph and $\mathcal{T} \subset G$ a spanning tree.
+
+\textbf{Existence and uniqueness of fundamental cycles.}  
+For each non-tree edge $e=(u,v) \in E \setminus \mathcal{T}$, there exists a unique simple path $P_{\mathcal{T}}(u,v)$ in $\mathcal{T}$ connecting $u$ and $v$, by acyclicity of $\mathcal{T}$.  
+Concatenating $e$ with $P_{\mathcal{T}}(u,v)$ defines a unique simple cycle: 
+\begin{equation}
+C_e = e \cup P_{\mathcal{T}}(u,v) \subset G.
+\end{equation}
+Under the quotient map $\gamma: G \to G/\mathcal{T}$ that collapses $\mathcal{T}$ to a point, the tree-path $P_{\mathcal{T}}(u,v)$ is mapped to that point, so $C_e$ becomes a nontrivial loop in $G/\mathcal{T}$.
+
+\textbf{Spanning and independence in homology.}  
+The cyclomatic number of $G$ is $\beta_1(G) = |E| - |V| + 1$, which equals the number of non-tree edges.  
+Thus there are exactly $\beta_1(G)$ fundamental cycles.  
+
+Any cycle in $G$ can be expressed as a linear combination of these fundamental cycles: traversing a cycle, each time a non-tree edge $e$ is encountered, the corresponding $C_e$ can be used to eliminate segments along $\mathcal{T}$.  
+
+These cycles are independent in $H_1(G)$, because under $\gamma$, each fundamental cycle maps to a distinct loop in $G/\mathcal{T}$, and loops around different edges of a wedge of circles are linearly independent in homology.  Hence the set 
+$
+\{ [C_e] \mid e \in E \setminus \mathcal{T} \}
+$
+forms a basis of $H_1(G)$.
+
+\textbf{Topological summary.}  
+Different choices of spanning tree yield different sets of fundamental cycles as edge sets, but the corresponding homology classes always span $H_1(G)$.  
+Therefore, these loops capture all independent cyclic dependencies of $G$, providing a concise topological summary suitable for lifting $G$ into a higher-dimensional cell complex.
+\end{proof}
+
+
+
+
+
+
+
+
+
+
+%endowing the original graph with contractible 2-cells that capture the topological cycles of the input space.
+%We construct a 2-dimensional regular cell complex from the input graph \( G = (V, E) \) by first treating it as a 1-dimensional cell complex, where: Each vertex \( v \in V \) is a \( 0 \)-cell; Each edge \( e = (u, v) \in E \) is a \( 1 \)-cell attached to the \( 0 \)-cells \( u \) and \( v \).
+%To identify higher-dimensional structure, we view \( G \) as a 1-skeleton embedded in a contractible topological space and define a deformation retraction \( \varphi: G \to T \), where \( T \subseteq G \) is a spanning tree. Since \( T \) is contractible, all loops in \( G \) are mapped to trivial paths in \( T \) under \( \varphi \), effectively flattening \( G \) into a tree structure.
+%To recover the essential cycles that characterize the 2-dimensional features of \( G \), we examine the preimages of these collapsed loops. For each edge \( e = (u, v) \in E \setminus T \), the edge together with the tree path \( P(u,v; T) \) forms a topological cycle:
+%\begin{equation}
+%    x^2_e = \varphi^{-1}(\varphi(P(u,v; T))) \cup \{e\}.
+%\end{equation}
+
+%Each such cycle \( x^2_e \) defines the attaching map of a \( 2 \)-cell (a disk) whose boundary is the loop traced by the corresponding \( 1 \)-cells in \( G \). We then attach a 2-cell along this loop to form the full complex:
+%\begin{equation}
+%    X^{(2)} = \left\{\, x^2_e \simeq D^2 \mid e = (u,v) \in E \setminus T \,\right\},
+%\end{equation}
+%where each \( D^2 \) is glued along its boundary \( \partial D^2 \cong S^1 \) via the loop \( x^2_e \subset G \).
+
+%This lifting operation completes the construction of a 2-dimensional regular cell complex:
+%\begin{equation}
+%    X = X^{(0)} \cup X^{(1)} \cup X^{(2)},
+%\end{equation}
+%endowing the original graph with contractible 2-cells that capture the topological cycles of the input space. The boundary operator \( \partial_2: X^{(2)} \to X^{(1)} \) maps each 2-cell to its constituent 1-cells, encoding topological relationships essential for downstream reasoning.
+
+
+
+
+%To construct 2-cells in the cellular complex, we interpret the input graph \( G = (V, E) \) as the 1-skeleton of a contractible space and define a deformation retraction \( \phi: G \to T \), where \( T \subseteq G \) is a spanning tree of \( G \). Since \( T \) is contractible, \( \phi \) continuously retracts \( G \) onto \( T \) while preserving its topological structure.
+
+%Under this retraction, all cycles in \( G \) are collapsed to trivial paths in \( T \). To identify the essential cycles, we examine the preimages of these collapsed paths. For each edge \( e = (u, v) \in E \setminus T \), we define a loop formed by the edge \( e \) and the path in the tree connecting \( u \) and \( v \), lifted back through \( \phi^{-1} \):
+%\begin{equation}
+%x^2_e = \phi^{-1}(\phi(P(u,v; T))) \cup \{e\},
+%\end{equation}
+%where \( P(u,v; T) \) denotes the unique path between \( u \) and \( v \) in the tree. The full set of 2-cells is then given by:
+%\begin{equation}
+%X^{(2)} = \left\{\, x^2_e \mid e = (u,v) \in E \setminus T \,\right\}.
+%\end{equation}
+%Each \( x^2_e \) corresponds to a topological cycle in \( G \) that is contractible in the ambient space, and is thus promoted to a 2-cell in the cellular complex. These 2-cells endow the graph with higher-dimensional structure, enabling topological reasoning beyond the 1-skeleton.
+
+%To instantiate 2-cells (i.e., rings) in the cellular complex, we extract a \textit{fundamental cycle basis} (FCB) from each input graph. Given an undirected graph $G = (V, E)$, we first compute a spanning tree $T \subseteq E$. For each non-tree edge $e = (u, v) \in E \setminus T$, a unique cycle $c_e$ is formed by combining $e$ with the path $P(u, v; T)$ between $u$ and $v$ in the tree:
+%\begin{equation}
+%    c_e = P(u, v; T) \cup \{e\}
+%\end{equation}
+%The resulting collection of cycles
+%\begin{equation}
+%    \mathcal{C}_{\mathrm{FCB}} = \{c_e \mid e \in E \setminus T\}
+%\end{equation}
+%forms a basis for the cycle space of $G$, containing exactly $|E| - |V| + 1$ linearly independent cycles.
+
+%Compared to the minimum cycle basis (MCB)~\cite{horton1987polynomial}, which finds the shortest-weight basis and often incurs cubic time complexity, FCB offers a desirable trade-off between completeness, interpretability, and efficiency. It can be constructed in near-linear time using union-find algorithms for tree construction~\cite{even1975complexity} and breadth-first search (BFS) for path recovery. Each cycle in the basis corresponds to a unique \textit{chord} in the graph, ensuring deterministic and non-redundant representation.
+
+%In molecular graphs, these cycles often align with chemically meaningful structures, such as aromatic or polycyclic rings. To avoid trivial or overly large cycles, we apply a size filter (e.g., $3 \leq |c_e| \leq 6$). The resulting filtered cycles define the 2-cells in the cellular complex, supporting higher-order topological reasoning and retrieval.
+
+%After extracting a fundamental cycle basis (FCB), we construct a 2-dimensional regular cell complex \( \mathcal{K} \) from the input graph. This complex comprises a hierarchical organization of 0-cells (nodes), 1-cells (edges), and 2-cells (rings), enabling structured reasoning over multi-dimensional graph elements.
+
+%Each \( k \)-cell is associated with a cochain space \( C^k := \text{Hom}(C_k, \mathbb{R}) \), which defines feature functions on the respective cell type. Specifically, we assign:
+%\begin{itemize}
+%    \item \( H_0 \in C^0 \): node features for 0-cells,
+%    \item \( H_1 \in C^1 \): edge-level features for 1-cells,
+%    \item \( H_2 \in C^2 \): ring-level features for 2-cells.
+%\end{itemize}
+
+%The structure of \( \mathcal{K} \) is defined by a sequence of boundary operators \( \partial_k : C_k \rightarrow C_{k-1} \), which map each \( k \)-cell to its \((k-1)\)-dimensional boundary. For instance:
+%\begin{itemize}
+%    \item \( \partial_1(e) = \{u, v\} \) maps an edge to its two endpoints,
+%    \item \( \partial_2(r) = \{e_1, e_2, ..., e_k\} \) maps a ring to the edges it traverses.
+%\end{itemize}
+
+%In implementation, these boundary relationships are encoded as sparse boundary matrices and paired with the respective cochain features. Together, they form a cellular complex object \( \mathcal{K} \), which serves as the structural backbone for the subsequent topology-aware message passing.
+
+\paragraph{Multi-dimensional Topological Message Passing (MTMP)} 
+We design a two-stage message passing mechanism leveraging the hierarchical structure of the cell complex. The first stage propagates information along the 1-skeleton via alternating message exchanges between nodes (0-cells) and edges (1-cells) over $L$ hops. The second stage allows cells of all dimensions to propagate and aggregate high-dimensional information via their attached higher-dimensional cells (2-cells), enabling rich topological context exchange across different cell dimensions.
+
+%To capture these interactions, we employ three message passing operations corresponding to faces, cofaces, and adjacency relations. Formally, for each simplex $x$, the messages are defined as:
+To model these interactions, we define three message passing operations over each cell complex $x$, corresponding to its faces, cofaces, and adjacent complexes:
+\begin{equation}
+    \begin{split}
+m_{\mathcal{F}}^{l+1}(x) &= \text{AGG}_{w \in \mathcal{F}(x)}\left( M_{\mathcal{F}}\left( \bm{h}_x^{l}, \bm{h}_w^{l} \right) \right), \\
+m_{\mathcal{C}}^{l+1}(x) &= \text{AGG}_{w \in \mathcal{C}(x)}\left( M_{\mathcal{C}}\left( \bm{h}_x^{l}, \bm{h}_w^{l} \right) \right), \\
+m_{\uparrow}^{l+1}(x) &= \text{AGG}_{w \in \mathcal{N}_{\uparrow}(x)}\left( M_{\uparrow}\left( \bm{h}_x^l, \bm{h}_w^l, \bm{h}_{x \cup w}^{l} \right) \right),
+\end{split}
+\end{equation}
+where \(l\) indicates the iteration step, \(\mathcal{F}(x) = \{ y \mid y \prec x \}\) and \(\mathcal{C}(x) = \{ z \mid x \prec z \}\) denote the sets of faces and cofaces of complex \(x\), respectively, with \(\prec\) representing the face relation (i.e., \(y \prec x\) means \(y\) is a face of \(x\)). The set \(\mathcal{N}_{\uparrow}(x)\) contains complexes adjacent to \(x\) via a shared coface.
+
+We incorporate the above message types into a two-stage message propagation scheme: 
+The first stage enables a topological expansion over 1-skeleton between 0-cell and 1-cell complexes. The representation is updated as:
+\begin{align}
+\bm{h}_x^{l} = \text{UPDATE}\left( \bm{h}_x^{l}, m_{\mathcal{F}}^{l}(x), m_{\mathcal{C}}^{l}(x) \right),
+\end{align}
+where the first-stage message passing iterates up to \(L\) hops.
+
+
+The second stage integrates the three message types, allowing cells of all dimensions to propagate and aggregate high-dimensional information through their attached 2-cells, thereby enriching the representation as:
+\begin{align}
+\bm{h}_x^{(L+1)} = \text{UPDATE}\left( \bm{h}_x^{L}, m_{\mathcal{F}}^{L}(x), m_{\mathcal{C}}^{L}(x), m_{\uparrow}^{L+1}(x) \right).
+\end{align}
+
+\paragraph{Cell Complex Knowledge Base Construction} 
+Finally, we construct the cell complex knowledge base \(X = \{ X_{\sigma} \}\). To mitigate the dominance of high-degree 0-cells (i.e., nodes) and better capture long-tail topological patterns, we adopt an inverse importance sampling strategy for selecting seed 0-cell complexes. The importance score of each 0-cell complex \(x\) is defined as a convex combination of its PageRank score \(\mathrm{PR}(x)\) and its degree \(\deg(x)\) using the formula $
+    I(x) = \alpha \cdot \mathrm{PR}(x) + (1 - \alpha) \cdot \deg(x)
+$, 
+where \(\alpha \in [0,1]\) balances the relative weight between centrality and connectivity. 
+Sampling probabilities are computed by normalized
+inverse importance:
+\begin{equation}
+    p(x_i) = \frac{1 / (I(x_i) + \varepsilon)}{\sum_j 1 / (I(x_j) + \varepsilon)},
+\end{equation}
+where \(\varepsilon > 0\) is a small constant ensuring numerical stability.
+
+Each local cell complex $\mathcal{X}_\sigma$ is defined as the $k$-hop neighborhood around the master 0-cell $x_m^0$, i.e., the 0-cell with the highest degree in the complex. It comprises all 0-cells and 1-cells reachable within $k$ hops from $x_m^0$, along with all 2-cells having at least one 1-cell face within this neighborhood. 
+To enhance structural diversity while preserving higher-dimensional topology, we apply topology-aware augmentations—such as node dropout, edge rewiring, and Gaussian perturbation—under the constraint that no 2-cell is disrupted. %That is, edges forming any 2-cell are never removed or altered, ensuring the topological consistency of the complex. 
+These augmentations generate multiple structurally consistent instances of the local complex, facilitating robust learning of topological representations. 
+
+%Each local cell complex \( X_{\sigma} \) is constructed as the \( k \)-hop neighborhood centered around the master 0-cell complex \( x_m^0 \), defined as the 0-cell with the highest degree in the complex. It includes all 0-cells and 1-cells reachable within \( k \) hops from \( x_m^0 \), as well as all 2-cells for which at least one of their 1-cell faces lies within this \( k \)-hop neighborhood. 
+%To increase structural diversity while preserving the integrity of higher-dimensional topology, standard augmentations such as node dropout, edge rewiring, and Gaussian perturbation are applied with the constraint that no 2-cell is disrupted during augmentation. Specifically, operations that would remove or alter edges forming any 2-cell are prohibited to maintain the topological consistency of the complex. 
+%The number of augmentations is scaled proportionally to the inverse importance of the seed 0-cell complex:
+%\begin{equation}
+%    n_{\mathrm{aug}}(X_{\sigma}) = \left\lfloor K \cdot \widetilde{I}(x_m^0) \right\rfloor,
+%\end{equation}
+%where \(\widetilde{I}(x_m^0)\) denotes the normalized inverse importance of the sampled 0-cell complex, and \(K\) is a hyperparameter controlling augmentation strength.
+For each local complex \( X_{\sigma} \), the key is defined as 
+$
+\bm{k}_b = [\tau_b, \bm{h}_m^0, \bm{h}_{\sigma}^2],
+$
+where \(\tau_b\) is the current time step, \(\bm{h}_m^0\) denotes the embedding of the master 0-cell, and \(\bm{h}_{\sigma}^2\) is a pooled two-dimensional topological feature summarizing all 2-cells within \( X_{\sigma} \). 
+The corresponding value is
+$
+\bm{v}_b = \{ [\bm{o}_i, \bm{h}_i] \mid x_i \in X_{\sigma} \},
+$
+containing the output vectors \( \bm{o}_i \) and embeddings \( \bm{h}_i \) of the constituent cell complexes.
+
+%Each local cell complex \( X_{\sigma} \) is constructed as the \( k \)-hop neighborhood centered around a sampled master 0-cell simplex \( x_m^0 \). It includes all 0-cells and 1-cells reachable within \( k \) hops from \( x_m^0 \), as well as all 2-cells for which at least one of their 1-cell faces lies within this \( k \)-hop neighborhood.
+% To increase structural diversity, standard augmentations such as node dropout, edge rewiring, and Gaussian perturbation are applied. The number of augmentations is scaled proportionally to the inverse importance of the seed 0-cell simplex:
+%\begin{equation}
+%    n_{\mathrm{aug}}(X_{\sigma}) = \left\lfloor K \cdot \widetilde{I}(x_i) \right\rfloor,
+%\end{equation}
+%where \(\widetilde{I}(x_i)\) denotes the normalized inverse importance of the sampled 0-cell simplex, and \(K\) is a hyperparameter controlling augmentation strength.
+
+%For each local complex \( X_{\sigma} \), the key is defined as 
+%$
+%k_c = [\tau, h_m^0, h_{\sigma}^2]
+%$, 
+%where \(\tau\) denotes the current time step, \(h_m^0\) represents the embedding of the master 0-cell, and \(h_{\sigma}^2\) is a two-dimensional topological feature obtained by pooling over all 2-cells contained within \(X_{\sigma}\). The corresponding value is given by
+%$
+%v_c = \{ [o_i, h_i] \mid x_i \in X_{\sigma} \},
+%$, 
+%which includes the output vectors \(o_i\) and the embeddings \(h_i\) of the cell complexes within \(X_{\sigma}\).
+
+%Then we construct the cell complex knowledge base,  for each $X_{\sigma}$, with key $k_c=[\tau,h_m^0, h_{\sigma}^2]$ concludes the time step $\tau$, the master 0-cell embedding $h_m^0$, and a two-dimensional topological characteristic $h_{\sigma}^2$ obtained by pooling over all 2-cells within $X_\sigma$. The value $v_c=\{[o_i, h_i] \mid x_i \in  X_\sigma\}$ concludes  output vectors $o_i$ and cell complex embeddings $h_i$ for cell complexes within $X_{\sigma}$. 
+
+
+
+
+
+
+
+
+%\paragraph{Multi-dimensional Topological Message Passing} 
+%We design a two-stage message passing mechanism that leverages both the $1$-skeleton and higher-dimensional cells in the CW complex. Each cell $\sigma$ receives messages from: (i) the $k$-hop $1$-skeleton neighborhood via alternating node-edge traversals, and (ii) its attached higher-dimensional cofaces such as rings or cavities.
+
+%\begin{align}
+%    &m_{\text{1D}}^{t+1}(\sigma) = \text{AGG}_{\tau \in \mathcal{N}^{(k)}_{1\text{-skeleton}}(\sigma)} 
+%    \Big(M_{1\text{D}}(h_{\sigma}^{t}, h_{\tau}^{t})\Big), \\
+%    &m_{\text{HD}}^{t+1}(\sigma) = \text{AGG}_{\delta \in \mathcal{C}_{\mathrm{coface}}(\sigma)} 
+%    \Big(M_{\text{HD}}(h_{\sigma}^{t}, h_{\delta}^{t}, \phi_{\sigma, \delta})\Big), \nonumber
+%\end{align}
+
+%Here, $\mathcal{N}^{(k)}_{1\text{-skeleton}}(\sigma)$ denotes the $k$-hop neighborhood of $\sigma$ within the $1$-skeleton (e.g., node-edge-node walks), while $\mathcal{C}_{\mathrm{coface}}(\sigma)$ denotes the set of higher-dimensional cofaces of $\sigma$, such as $2$-cells attached to edges or rings enclosing bonds. The auxiliary feature $\phi_{\sigma, \delta}$ encodes geometric or topological context between the cell and its coface.
+
+%The update rule then integrates both channels:
+%\begin{equation}\label{eq:mdmp_update}
+%    h_{\sigma}^{t+1} = U\Big(h_{\sigma}^{t}, m_{\text{1D}}^{t+1}(\sigma), m_{\text{HD}}^{t+1}(\sigma)\Big).
+%\end{equation}
+
+
+
+
+
+
+
+
+
+
+
+%\vspace{0.5em}
+\subsection{Retrieval-Augmented Graph Inference with Topological Complexes}
+%To enhance structural generalization in retrieval-augmented graph learning, we propose a topology-aware inference pipeline that integrates high-order cell complexes at both ends of the retrieval process. Our method departs from traditional flat representations by explicitly modeling ring-level structures in both toy and query graphs, allowing for fine-grained topological alignment. We further design a multi-modal similarity function that jointly considers semantic, structural, and ring-aware cues to retrieve relevant external graphs. The retrieved knowledge is injected into the model via prompt fusion, enabling improved reasoning over complex graph motifs.
+\paragraph{Cell Complex Retrieval Process} Given a query graph $\mathcal{G}_q$, we first apply the lifting map $f: \mathcal{G} \to X$ and employ the Multi-dimensional Topological Message Passing framework to obtain its cell complex representations. The query key is defined as 
+$
+\bm{k}_q = [\tau_q, \bm{h}_c^0, \bm{h}_q^2],
+$
+where \(\tau_q\) denotes the time step, \(\bm{h}_c^0\) is the embedding of the central 0-cell, and \(\bm{h}_q^2\) represents a pooled two-dimensional topological feature summarizing all 2-cells within the query complex \(X_q\). The \(topK\) cell complexes $X_{topK}$ are selected based on a similarity score computed as a weighted combination of the factors:
+
+\begin{equation}
+S(\bm{k}_q, \bm{k}_b) = \mathbf{w} \times [S_{\tau}(\tau_q, \tau_b), S_{0}(\bm{h}^0_c, \bm{h}^0_m), S_{2}(\bm{h}^2_q, \bm{h}^2_{\sigma})]^\text{T},
+\end{equation}
+where $\mathbf{w} = [\mathbf{w}_1, \mathbf{w}_2, \mathbf{w}_3]$ denotes a set of hyperparameter weights,  
+$S_{\tau}(\tau_q, \tau_b) = e^{-\eta |\tau_q - \tau_b|}$ captures temporal similarity with a decay rate $\eta$,  
+and both $S_0(\cdot, \cdot)$ and $S_2(\cdot, \cdot)$ compute cosine similarity between the corresponding features. %\(topK\) cell complexes are retrieved.
+
+%\vspace{0.5em}
+%\paragraph{Topology-Aware Ring Embedding.}
+%To inject higher-order topological structure into each toy graph, we construct a 2-dimensional cellular complex \( \mathcal{K}_{\text{toy}} = \{C_0, C_1, C_2\} \), where \( C_0 \), \( C_1 \), and \( C_2 \) denote the sets of nodes, edges, and rings, respectively.
+
+%We define a hierarchical feature aggregation from 0-cells to 2-cells.  
+%First, edge-level features are computed from incident nodes:
+%\begin{equation}
+%\mathbf{h}_e = \phi_e\left( \frac{1}{|\partial e|} \sum_{v \in \partial e} \mathbf{h}_v \right), \tag{11}
+%\end{equation}
+%where \( \partial e \) denotes the set of nodes incident to edge \( e \), and \( \phi_e(\cdot) \) is a learnable transformation such as an MLP.
+
+%Then, ring-level features are computed by aggregating over the constituent edges:
+%\begin{equation}
+%\mathbf{h}_r = \phi_r\left( \frac{1}{|\partial r|} \sum_{e \in \partial r} \mathbf{h}_e \right), \tag{12}
+%\end{equation}
+%where \( \partial r \) is the set of edges in ring \( r \), and \( \phi_r(\cdot) \) is another learnable function (e.g., an MLP).
+
+%Finally, a graph-level ring embedding is obtained by average pooling over all rings:
+%\begin{equation}
+%\mathbf{h}_{\text{ring}} = \frac{1}{|R|} \sum_{r %\in R} \mathbf{h}_r. \tag{13}
+%\end{equation}
+
+
+%\vspace{0.5em}
+%\paragraph{Key, Value, and Ring Feature Construction.}
+%The ring-level embedding \( \mathbf{h}_{\text{ring}} \) serves as a central structural signal in memory construction. Specifically, it is employed in three complementary ways:
+
+%\textbf{(i) Key construction.} A memory key is formed by concatenating \( \mathbf{h}_{\text{ring}} \) with the graph-level semantic embedding \( \mathbf{h}_{\text{sem}} \):
+%\begin{equation}
+%\mathbf{k}_{\text{toy}} = [\mathbf{h}_{\text{sem}}, \mathbf{h}_{\text{ring}}]. \tag{14}
+%\end{equation}
+
+%\textbf{(ii) Value representation.} A value vector is constructed by fusing \( \mathbf{h}_{\text{ring}} \) with a \( k \)-hop aggregated node feature representation \( \mathbf{v}_{\text{struct}} \):
+%\begin{equation}
+%\mathbf{v}_{\text{toy}} = [\mathbf{v}_{\text{struct}}, \mathbf{h}_{\text{ring}}]. \tag{15}
+%\end{equation}
+
+%\textbf{(iii) Ring feature projection.} To enable fine-grained ring-level similarity, \( \mathbf{h}_{\text{ring}} \) is further transformed via a learnable projection head:
+%\begin{equation}
+%\mathbf{z}_{\text{ring}} = f_\theta(\mathbf{h}_{\text{ring}}), \tag{16}
+%\label{eq:zring}
+%\end{equation}
+%where \( f_\theta \) denotes a learnable multilayer perceptron (MLP).
+
+%This unified ring-guided memory design facilitates both topologically aware retrieval and downstream prompt fusion.
+
+%\paragraph{Multi-modal Topological Retrieval.}
+%Given a query graph \( G_q \), we first lift it into a 2-dimensional cellular complex \( \mathcal{K}_q = \{ C^q_0, C^q_1, C^q_2 \} \), where \( C^q_k \) denotes the set of \( k \)-cells in the query graph. This lifting enables structured topological reasoning over nodes, edges, and rings. 
+
+%We then extract three types of representations from \( \mathcal{K}_q \): 
+%a semantic key \( \mathbf{h}_{\text{sem}} \), a structural position code \( \mathbf{p}_{\text{struct}} \), 
+%and a query-side ring feature \( \mathbf{z}_{\text{ring}}^{(q)} \). 
+%These features are computed using the same modules as those used in toy graph construction, 
+%ensuring consistency between query and memory modalities.
+
+\paragraph{Cellular Knowledge Injection Propagation} 
+Within each retrieved cell complex $X_\sigma \in X_{\text{TopK}}$, we perform \textit{intra-complex aggregation} to propagate information from the constituent cells to the master 0-cell using the proposed Multi-dimensional Topological Message Passing (MTMP) module. Specifically, both the task-specific output vectors $\bm{o}_i$ and hidden embeddings $\bm{h}_i$ of the constituent cells $x_i \in X_\sigma$ are aggregated and transmitted to the master 0-cell $x_m^0$:
+%Within each retrieved cell complex \( X_\sigma \in X_{\text{TopK}} \), information is propagated from constituent cells to the master 0-cell using the proposed Multi-dimensional Topological Message Passing (MTMP) module. Both the task-specific output vectors \( \bm{o}_i \) and hidden embeddings \( \bm{h}_i \) of the constituent cells \( x_i \in X_\sigma \) are aggregated and transmitted to the master 0-cell \( x_m^0 \):%. This process preserves the high-dimensional topological structure of the complex and respects the cellular hierarchy across dimensions:
+\begin{equation}
+\mathbf{z}_m^0 = \text{MTMP}\left( \{\mathbf{z}_i \mid x_i \in X_\sigma\} \right),
+\end{equation}
+where \( \mathbf{z}_i \in \{\bm{o}_i, \bm{h}_i\} \) and \( \mathbf{z}_m^0 \in \{\bm{o}_m^0, \bm{h}_m^0\} \). For parameter-free settings, such propagation can be pre-computed and cached during knowledge base construction to improve efficiency during inference.
+
+Then we perform \textit{inter-complex aggregation}, where the retrieved master 0-cells \( x_m^0 \) from the selected cell complexes \( X_\sigma \in X_{\text{TopK}} \) act as knowledge anchors to enhance the query center 0-cell \( x_c^0 \) in \( X_q \). The \textsc{MTMP} module is reused to inject knowledge from each \( x_m^0 \) into \( x_c^0 \). Although the retrieval and connection occur at the 0-cell level, the injected information is further propagated to higher-dimensional cells through multi-level message passing over the entire cell complex. Formally, for each query center cell:
+\begin{equation}
+\bm{h} = \text{MTMP}\left( \{ \bm{h}_i \mid x_i \in X_q \cup \{x_m^0\} \} \right),
+\end{equation}
+\begin{equation}
+\bm{o}_c = \text{MTMP}\left( \{ \bm{o}_i^0 \mid x_i^0 \in \{x_m^0\} \} \right),
+\end{equation}
+where $\bm{h}=[\{\bm{h}^0\},\{\bm{h}^1\},\{\bm{h}^2\}]$ concludes embedding of various dimensional cell complexes.
+
+Finally, at the data fusion layer, the aggregated hidden state \( \bm{h}^0_c \) of the center 0-cell \( x_c^0 \) and \( \bm{h}^2_q \) the pooling of 2 cell complexes is passed through a multi-layer perceptron  \( \text{MLP}(\cdot) \), yielding a structure-aware output. This output is then combined with the task-specific output \( \bm{o}_c \), which has already integrated multi-dimensional signals through the retrieval-enhanced process. The final prediction is computed as:
+\begin{equation}
+\hat{\bm{o}}_c = \gamma \bm{o}_c + (1 - \gamma) \text{MLP}([\bm{h}^0_c, \bm{h}^2_q]),
+\end{equation}
+where \( \gamma \in [0, 1] \) is a reweighting hyperparameter. The resulting representation \( \hat{\bm{o}}_c \) serves as the input to downstream node-, edge-, or graph-level tasks, typically evaluated via a task-specific similarity function.
+
+%where the influence of each \( x_m^0 \) is modulated by its similarity score with the query key \( k_q \). In learnable configurations, attention weights across the similarity-based connections can be adaptively optimized. In contrast, parameter-free variants apply fixed weights derived from normalized similarity values.
+
+%This two-stage propagation strategy ensures that both local topological structure and global semantic knowledge are integrated into the center 0-cell of the query complex, enhancing its representation for downstream tasks.
+
+
+%The retrieved representation \( \mathbf{z}_{\text{prompt}} \) (Eq.~\ref{eq:zprompt}) is used as an external topology-guided prompt to enhance the representation of the query graph.
+%To achieve this, we perform three-way feature fusion: the query graph’s own representation, the retrieved memory prompt, and a transformed ring-level feature extracted from the query graph.
+
+%First, we encode the query graph $G_q$ by performing $k$-hop neighborhood aggregation over node embeddings, and then apply global mean pooling to obtain the query representation $\mathbf{z}_{\text{query}}$.
+
+
+
+
+%In parallel, the query graph’s ring-level embedding $\mathbf{h}_{\text{ring}}$ is transformed via the projection function $f_\theta$ (defined in Eq.~16) to obtain the prompt feature $\mathbf{z}_{\text{ring}}$.
+
+
+
+%The final decoder input is constructed by concatenating the three components:
+%\begin{equation}
+%\mathbf{z}_{\text{input}} = [\mathbf{z}_{\text{query}}, \mathbf{z}_{\text{prompt}}, \mathbf{z}_{\text{ring}}] \in \mathbb{R}^{4D}. \tag{23}
+%\end{equation}
+
+%This fused representation is then passed into a task-specific decoder \( \text{Dec}(\cdot) \) to produce the classification logits:
+%\begin{equation}
+%\hat{\mathbf{y}} = \text{softmax}(\text{Dec}%(\mathbf{z}_{\text{input}})). \tag{24}
+%\end{equation}
+
+%To encourage consistency between the predicted label and the retrieved label distribution, we interpolate the predictions as follows:
+%\begin{equation}
+%\mathbf{y}_{\text{final}} = (1 - \lambda) \cdot \hat{\mathbf{y}} + \lambda \cdot \mathbf{y}_{\text{retrieved}} , \tag{25}
+%\end{equation}
+%where \( \lambda \in [0,1] \) controls the influence of the retrieval memory.
+
+%This prompt-based fusion pipeline enables the decoder to utilize external topological priors alongside query-specific information, leading to improved downstream classification performance.
+
+
+%\vspace{0.5em}
+
+%\vspace{0.5em}
+% \subsection{Cellular Topological Contrastive Learning (CTCL)}
+% Modeling high-dimensional topological structures in graphs requires capturing discriminative and robust representations of 2-cells. To this end, we introduce \textbf{Cellular Topological Contrastive Learning} (CTCL), which enhances structural discrimination by enforcing feature consistency within each 2-cell, thereby capturing topological semantics beyond conventional pairwise interactions.
+
+% To implement CTCL, we construct positive and negative pairs by sampling subsets \( \mathcal{V}_i \) and \( \mathcal{V}_j \) from the boundary 1-cells of each 2-cell using importance sampling, with the probability of selecting each node proportional to its degree, and aggregating their node embeddings to obtain the global representations:
+
+    
+% \begin{equation}
+% \tilde{\bm{h}}_i = \frac{1}{|\mathcal{V}_i|} \sum_{u \in \mathcal{V}_i} \bm{h}_u + \lambda \cdot \mathcal{N}(0, 1), 
+% \quad 
+% \tilde{\bm{h}}_j = \frac{1}{|\mathcal{V}_j|} \sum_{u \in \mathcal{V}_j} \bm{h}_u + \lambda \cdot \mathcal{N}(0, 1),
+% \label{eq:subset_agg}
+% \end{equation}
+
+
+
+% where \( \lambda \) is the noise strength and \( \mathcal{N}(0, 1) \) is Gaussian noise added to prevent representation collapse.
+
+
+% We adopt an InfoNCE loss~\cite{you2020graphcl} with cosine similarity to encourage similarity to encourage higher similarity between embeddings of subsets from the same 2-cell (positive pairs) while pushing apart those from different 2-cells (negative pairs):
+% \begin{equation}
+% \mathcal{L}_{\text{CTCL}} = - \sum_{i=1}^{N} \log \frac{\exp(\texttt{sim}(\tilde{\bm{h}}_i^{(1)}, \tilde{\bm{h}}_i^{(2)})/\tau)}{
+% \sum_{j=1}^{N} \exp(\texttt{sim}(\tilde{\bm{h}}_i^{(1)}, \tilde{\bm{h}}_j^{(2)})/\tau)},
+% \label{eq:ctcl_loss}
+% \end{equation}
+% where \( \texttt{sim}(\cdot, \cdot) \) denotes cosine similarity, \( \tau \) is a temperature hyperparameter, and \( N \) is the number of 2-cells in the batch.
+\subsection{Cellular Topological Contrastive Learning (CTCL)}
+We propose \textbf{Cellular Topological Contrastive Learning (CTCL)} to encode high-dimensional structural semantics within each 2-cell $x^2_k \in X^{(2)}$ by enforcing feature consistency among its constituent 0-cells.
+Formally, let $\mathcal{X}^{(0)}_k$ denote the set of 0-cells forming $x^2_k$. For each 2-cell, we independently sample two subsets of 0-cells, $\tilde{\mathcal{X}}^{(0)}_{k,1}$ and $\tilde{\mathcal{X}}^{(0)}_{k,2}$, using degree-based importance sampling. The embeddings of these subsets are aggregated to produce two representations per 2-cell:
+% \begin{equation}
+% \tilde{\bm{h}}_{k,v}
+% = \frac{1}{|\tilde{\mathcal{X}}^{(0)}_{k,v}|}
+% \sum_{x^0 \in \tilde{\mathcal{X}}^{(0)}_{k,v}} \bm{h}_{x^0}+
+% \alpha \cdot \mathcal{N}(0, 1),
+% \quad k = 1,\dots,N, ; v \in {1,2},
+% \end{equation}
+\begin{equation}
+\begin{aligned}
+\tilde{\bm{h}}_{k,v}
+&= \frac{1}{|\tilde{\mathcal{X}}^{(0)}_{k,v}|}
+   \sum_{x^0 \in \tilde{\mathcal{X}}^{(0)}_{k,v}}
+   \left( \bm{h}_{x^0} + \alpha \cdot \mathcal{N}(0,1) \right), \\
+&\qquad k = 1,\dots,N,\quad v \in \{1,2\},
+\end{aligned}
+\label{eq:ctcl-representation}
+\end{equation}
+where $\bm{h}_{x^0}$ is the embedding of 0-cell $x^0$, $\alpha$ controls the magnitude of Gaussian perturbation, and $N = |X^{(2)}|$ is the number of 2-cells. We adopt an InfoNCE loss to enforce consistency between these two views:
+\begin{equation}
+\mathcal{L}_{\text{CTCL}} = - \frac{1}{N} \sum_{k=1}^{N}
+\log \frac{\exp\big(\text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{k,2}) / \tau\big)}
+{\sum_{j \neq k} \exp\big(\text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{j,2}) / \tau\big)},
+\end{equation}
+where $\text{sim}(\cdot,\cdot)$ denotes the cosine similarity and $\tau$ is a temperature parameter. The overall training objective combines standard classification with topological contrastive regularization:
+\begin{align}
+\mathcal{L}_{\text{cls}} &= - \sum_{c=1}^{C} y_c \log \hat{y}_c, \\
+\mathcal{L}_{\text{total}} &= \mathcal{L}_{\text{cls}} + \lambda \cdot \mathcal{L}_{\text{CTCL}},
+\end{align}
+where $y_c$ and $\hat{y}_c$ denote the ground-truth label and predicted probability for class $c$, respectively, and $\lambda$ balances supervised learning and topological contrastive regularization.
+%We design CTCL to capture high-order structural semantics within each 2-cell $x^2_k \in X^{(2)}$ by enforcing feature consistency among its constituent 0-cells. 
+%Specifically, for each 2-cell $x^2_k$, we independently sample two subsets of its constituent 0-cells $\mathcal{X}^{(0)}_k$, denoted as $\tilde{\mathcal{X}}^{(0)}_{k,1}$ and $\tilde{\mathcal{X}}^{(0)}_{k,2}$, using degree-based importance sampling. We then aggregate the embeddings of these 0-cells to obtain the representations $\tilde{\bm{h}}_{k,1}$ and $\tilde{\bm{h}}_{k,2}$:
+
+%\begin{equation}
+%\tilde{\bm{h}}_{k,v} 
+%= \frac{1}{|\tilde{\mathcal{X}}^{(0)}_{k,v}|} 
+%\sum_{x^0 \in \tilde{\mathcal{X}}^{(0)}_{k,v}} \bm{h}_{x^0} 
+%+ \alpha \cdot \mathcal{N}(0, 1),
+%\quad k = 1,\dots,N, \; v \in \{1,2\},
+%\end{equation}
+
+%where $\alpha$ controls Gaussian perturbation. We then adopt an InfoNCE loss:
+%\begin{equation}
+%\mathcal{L}_{\text{CTCL}} = - \frac{1}{N} \sum_{k=1}^{N} 
+%\log \frac{\exp(\text{sim}(\tilde{\bm{h}}_k^{(1)}, %\tilde{\bm{h}}_k^{(2)}) / \tau)}
+%{\sum_{j\neq k} \exp(\text{sim}(\tilde{\bm{h}}_k^{(1)}, %\tilde{\bm{h}}_j^{(2)}) / \tau)},
+%\end{equation}
+%where $\tau$ is the temperature and $N = |X^{(2)}|$ is the number of 2-cells.
+%While supervised classification provides the primary training signal, it alone is insufficient to capture complex topological structures. To address this, we propose \textbf{Cellular Topological Contrastive Learning (CTCL)}, which enforces feature consistency within each 2-cell and thereby captures structural semantics beyond pairwise interactions. 
+%Specifically, for each 2-cell, we independently sample two subsets of its constituent 0-cells, denoted as $\mathcal{V}^{(1)}_k$ and $\mathcal{V}^{(2)}_k$, using degree-based importance sampling, and then aggregate their embeddings to obtain the representations $\tilde{\bm{h}}^{(1)}_k$ and $\tilde{\bm{h}}^{(2)}_k$.
+
+%\begin{equation}
+%\tilde{\bm{h}}^{(v)}_{k} 
+%= \frac{1}{|\mathcal{V}^{(v)}_{k}|} 
+%\sum_{u \in \mathcal{V}^{(v)}_{k}} \bm{h}_u 
+%+ \alpha \cdot \mathcal{N}(0, 1),
+%\quad k = 1,\dots,N, \; v \in \{1,2\},
+%\end{equation}
+
+%where $\alpha $ controls Gaussian perturbation. We then adopt an InfoNCE loss:
+%\begin{equation}
+%\mathcal{L}_{\text{CTCL}} = - \frac{1}{N} \sum_{i=1}^{N} 
+%\log \frac{\exp(\text{sim}(\tilde{\bm{h}}_i^{(1)}, \tilde{\bm{h}}_i^{(2)}) / \tau)}
+%{\sum_{j=1}^{N} \exp(\text{sim}(\tilde{\bm{h}}_i^{(1)}, \tilde{\bm{h}}_j^{(2)}) / \tau)},
+%\end{equation}
+%where $\tau$ is the temperature and $N$ is the number of 2-cells.
+
+%The final training objective combines classification and contrastive learning:
+%\begin{equation}
+%\mathcal{L}_{\text{cls}} = - \sum_{c=1}^{C} y_c \log \hat{y}_c,
+%\end{equation}
+%\begin{equation}
+%\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{cls}} + \lambda %\cdot \mathcal{L}_{\text{CTCL}},
+%\end{equation}
+%where $y_c$ and $\hat{y}_c$ denote the ground-truth label and the predicted probability for class $c$, respectively. $\lambda$ balances supervision and topological contrastive regularization.
+

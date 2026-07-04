@@ -1,0 +1,559 @@
+\clearpage
+\appendix
+\section{Notions}
+The notations in this paper are summarized in Table~\ref{tab:notions}.
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\label{notion}
+\caption{Notations Tables in ReTAG.}
+\begin{tabular}{@{}lp{11cm}@{}}
+\toprule
+\textbf{Notation} & \textbf{Definition} \\ \midrule
+$\mathcal{G}$ & Graph space, consisting of graphs with nodes and edges. \\
+$X$ & Regular cell complex space, consisting of a collection of cells. \\
+$X^{(0)}$/$X^{(1)}$/$X^{(2)}$ & 0-, 1-, and 2-skeletons of $X$. \\
+
+$x_\alpha$ & A cell in the cell complex $X$. \\
+$\overline{x_\alpha}$ & Topological closure of cell $x_\alpha$. \\
+$x^1 \prec x^2$ & Cell $x^1$ is a face of $x^2$ (i.e., $x^1 \subseteq \overline{x^2}$). \\
+$\mathcal{X}=\{x_\alpha\}$ & Set of cells in $X$, indexed by $\alpha$. \\
+
+$f : \mathcal{G} \to X$ & Cellular lifting map that maps graphs in $\mathcal{G}$ to regular cell complexes in $X$. \\
+%$f(G_1) \cong f(G_2)$ & Graphs $G_1$ and $G_2$ are isomorphic if and only if their corresponding cell complexes are isomorphic. \\
+$I(x)$ & Importance score of a 0-cell complex $x$.\\
+$p(x_i)$ & Probability of sampling 0-cell complex $x_i$.  \\
+$\varepsilon$ & Small constant used to ensure numerical stability in sampling probabilities. \\
+$X_\sigma$ & Local cell complex constructed from the $k$-hop neighborhood around the master 0-cell $x_m^0$. \\
+$k_b$ & Key for cell complex $X_\sigma$. \\
+$k_q$ & Query key. \\
+$S_\tau(\tau_q, \tau_b)$ & Temporal similarity score between the query and base cells based on the time difference. \\
+% $S_0(\bm{h}_c^0, \bm{h}_m^0)$ & Cosine similarity between the 0-cell embeddings of the query and base cells. \\
+% $S_2(\bm{h}_q^2, \bm{h}_\sigma^2)$ & Cosine similarity between the 2-cell topological features of the query and base cells. \\
+$\mathbf{w}$ & Weight vector for combining temporal, 0-cell, and 2-cell similarities. \\
+$w_1, w_2, w_3$ & Hyperparameter weights for temporal, 0-cell, and 2-cell similarity contributions. \\
+$o_i$ & Task-specific output vector for the $i$-th cell in the complex $X_\sigma$. \\
+$h_i$ & Embedding of the $i$-th cell in the complex $X_\sigma$. \\
+$\bm{h}_m^0$ & Embedding of the master 0-cell in the complex $X_\sigma$. \\
+$\bm{h}_c^0$ & Embedding of the center 0-cell in the query complex $X_q$. \\
+$\bm{h}_q^2$ & Pooled two-dimensional topological feature for the query complex $X_q$. \\
+$\bm{h}_\sigma^2$ & Pooled two-dimensional topological feature for the base complex $X_\sigma$. \\
+$\mathcal{L}_{\text{CTCL}}$ & Cellular Topological Contrastive Learning (CTCL) loss. \\
+$\tilde{\bm{h}}_{k,v}$ & Representation of 2-cell $x_k^2$ for the $v$-th view, aggregated from 0-cell subsets. \\
+$\mathcal{L}_{\text{cls}}$ & Standard classification loss for supervised learning. \\
+$\mathcal{L}_{\text{total}}$ & Total loss function combining classification and CTCL losses. \\
+$\lambda$ & Regularization hyperparameter controlling the weight of the CTCL loss. \\
+\bottomrule
+\end{tabular}
+
+\label{tab:notions}
+\end{table}
+
+
+
+\section{More Motivation Details}
+
+In this section, we provide more in-depth motivation for the proposed approach and elaborate on the challenges addressed by our method. We focus on how retrieval-augmented learning and higher-dimensional topological representations can help overcome some key limitations in traditional graph learning techniques.
+
+\subsection{Limitations of Traditional Graph Learning Models}
+
+Graph neural networks (GNNs) have made significant progress in learning graph representations\cite{kipf2017gcn,hamilton2017graphsage,velivckovic2018gat}, but they still face limitations in capturing the complex and rich topological structure present in many real-world graphs. Existing methods predominantly rely on node-level and edge-level information for learning graph embeddings. However, these models often struggle to capture higher-dimension dependencies such as cycles, motifs, and other complex topological patterns\cite{benson2016higher}. This is especially problematic when dealing with tasks that require a deeper understanding of graph structure, such as graph retrieval and node classification in graphs with intricate structures.
+
+While recent advancements in retrieval-augmented models (RAG) have shown promise in addressing these limitations, they primarily focus on leveraging node-level features and semantic retrieval. The rich topological semantics inherent in graphs are often underutilized, limiting the potential of these methods.
+
+\subsection{Why Topological Representations Matter?}
+
+We argue that topological structures such as cycles, 2-cells, and higher-dimensional features play a critical role in enhancing graph learning\cite{hensel2021survey}. Traditional graph representations, such as node embeddings or edge features, often overlook these higher-dimensional interactions, which are essential in many applications like social network analysis, molecular graph modeling, and knowledge graph exploration\cite{gilmer2017mpnn}. By lifting graphs into higher-dimensional cellular complexes, our method captures the intricate dependencies between nodes and edges that are often missed by conventional approaches. 
+
+In this work, we introduce ReTAG, a method that integrates both semantic and topological alignment to capture complex structural semantics within graphs. This enables the model to learn richer, more informative representations of graphs by considering both the node embeddings and the higher-dimensional topological interactions between nodes, edges, and other graph components.
+
+\subsection{Addressing the Long-Tail Knowledge Challenge}
+
+A distinctive challenge in graph learning is the long-tail distribution of knowledge. 
+Unlike tabular or text data, graphs naturally follow a power-law degree distribution: a small number 
+of high-degree hubs dominate the connectivity, while the vast majority of nodes have very low degree\citep{barabasi1999emergence,newman2003structure}. 
+In retrieval-augmented settings, this imbalance is amplified---hub nodes, encoding frequent or common 
+knowledge, are repeatedly retrieved and overrepresented, whereas long-tail nodes remain underutilized\citep{lewis2020retrieval,borgeaud2022improving}. 
+This bias hinders the model’s ability to capture rare but critical patterns. 
+
+The consequences of neglecting the long-tail are significant. In scientific knowledge graphs, 
+rare compounds or niche experimental findings often drive new discoveries. In recommendation 
+systems, cold-start users and infrequent items typically reside in the long-tail, and failure to model 
+them exacerbates personalization gaps\citep{park2008long,celma2010music}. In graph classification, rare motifs (e.g., higher-dimension 
+cycles) may carry essential discriminative signals. Thus, effectively incorporating long-tail knowledge 
+is crucial for robust generalization.
+
+To address this, we propose an \textbf{inverse importance sampling} strategy that rebalances the node 
+distribution. Specifically, we define a node importance score $I(x)$ that combines centrality and degree, 
+and assign sampling probability inversely proportional to it:
+\begin{equation}
+    p(x) \propto \frac{1}{I(x)+\varepsilon}, 
+\end{equation}
+where $I(x)$ denotes a node importance score defined in the main text, $\alpha$ controls the balance, 
+and $\varepsilon$ is a small constant for stability. 
+
+This reweighting reduces the dominance of hubs while amplifying the contribution of long-tail nodes. 
+The trade-off parameter $\alpha$ ensures that global connectivity patterns remain preserved. As a result, 
+the model learns to integrate both common and rare knowledge, achieving better generalization across 
+diverse graph tasks, including cold-start recommendation and few-shot classification.
+
+\subsection{The Role of Multi-Dimensional Topological Message Passing (MTMP)}
+
+A key innovation in our method is the use of \textbf{Multi-Dimensional Topological Message Passing} (MTMP), which extends traditional message-passing schemes to higher-dimensional structures. While conventional GNNs propagate information between neighboring nodes\citep{gilmer2017neural,kipf2017semi}, MTMP allows information to flow across different topological dimensions such as cycles, motifs, and higher-dimension subgraphs\citep{benson2016higher,bodnar2021topological}. This enables the model to learn more complex dependencies and capture the structural semantics that are essential for tasks like graph retrieval, classification, and link prediction.
+
+MTMP is designed to operate over cellular complexes\citep{bodnar2021simplicial,hensel2021survey}, which include not just nodes and edges, but also higher-dimensional features (2-cells, 3-cells, etc.). By using MTMP, we can propagate information across these higher-dimensional entities, allowing the model to understand the graph in a richer, more comprehensive way.
+
+\subsection{Contrastive Learning for Structural Consistency}
+
+To further enhance the learned representations, we introduce \textbf{Contrastive Topological Contrastive Learning (CTCL)} \cite{you2020graphcl}. 
+The goal of CTCL is to enforce consistency in the learned embeddings of topologically similar structures. 
+For example, if two nodes or subgraphs exhibit similar topological properties, their embeddings should be close in the learned representation space \cite{chen2020simclr}. 
+To achieve this, we adopt an \emph{InfoNCE-style objective} \cite{oord2018cpc}, which encourages embeddings of positive pairs (topologically consistent structures) to be similar while pushing apart negative pairs. 
+This regularization mechanism improves the model’s ability to generalize across graph structures with varying topologies.
+
+
+
+
+\subsection{Comparison with Existing Methods}
+
+Graph Neural Networks (GNNs) have garnered significant attention in both academic and industry communities for their robust capability to model complex, real-world data in various domains such as societal networks, biochemistry, and traffic systems \cite{Fang2025,Fang2023,Gao2023,Li2022}. By utilizing a message-passing mechanism, GNNs have gone beyond traditional node embedding approaches, enabling the capture of intricate relationships within graph-structured data. Despite their success, GNNs face significant challenges when generalizing across different graph modalities, domains, and tasks. This lack of generalization remains a major research frontier, especially when the graph structures differ substantially across scenarios \cite{Asai2023,Asai2024,Izacard2022}. 
+
+While GNNs are capable of handling node-level features and local graph relationships, they often struggle with graphs that exhibit complex topological diversity or when graph structures vary significantly from the training data. This limits their ability to generalize effectively, particularly when tasked with complex graph patterns or when encountering graphs with unseen structures.
+
+RAGraph improves upon this by integrating retrieval-augmented learning \cite{JiangQXZZ00X0W24}. It enhances generalization by retrieving semantically similar subgraphs from external sources and incorporating them into the learning process. However, RAGraph still focuses primarily on low-dimensional structures (nodes and edges), and while it introduces a retrieval mechanism to augment the model's contextual knowledge, it still lacks the ability to capture the more intricate, higher-dimensional topological features that are essential for tasks involving complex relational patterns. This is especially problematic when graphs involve structures like cycles or multi-dimensional topological motifs that are critical for accurate inference and prediction.
+
+ReTAG, in contrast, builds on the retrieval-augmented approach but introduces topological alignment alongside semantic alignment. By utilizing cellular complexes \cite{hajij2020cell}, ReTAG captures richer topological features, such as cycles and loops, which are critical for reasoning over complex graph structures. Additionally, ReTAG combines retrieval with generation-augmented learning, allowing it to retrieve and generate relevant subgraphs during inference. This combination improves its generalization to unseen graphs and dynamic graph structures, making ReTAG more flexible and effective for tasks that require handling complex graph topologies.
+
+In summary, while RAGraph and traditional GNNs improve graph learning by integrating retrieval mechanisms, ReTAG distinguishes itself by incorporating topological reasoning and generation-augmented learning, allowing it to better handle high-dimensional graph structures and enhance its performance on tasks requiring complex topological reasoning.
+
+\section{Additional Related Work}
+\label{app:related}
+\paragraph{Topological Deep Learning.} 
+Topological deep learning (TDL) builds upon early advances in Topological Signal Processing (TSP) \cite{barbarossa2020topological, schaub2021signal, roddenberry2022cellsp, sardellitti2022cell}, which highlighted the importance of modeling higher-order relations beyond pairwise connections. This line of work has motivated the generalization of classical graph-theoretic tools to richer topological domains, such as simplicial complexes (SCs) and cell complexes (CWs). In particular, extensions of the Weisfeiler–Lehman test to SCs and CWs \cite{bodnar2021weisfeiler, DBLP:conf/nips/BodnarFOWLMB21} have laid the theoretical foundations for higher-order message passing. Subsequently, a variety of neural architectures have been proposed, including convolutional designs for SCs and CWs \cite{ebli2020simplicial, yang2022effsimpl, hajij2020cell, yang2023convolutional, roddenberry2021principled, hajij2022} and attentional formulations \cite{goh2022simplicial, giusti2023cell}. To unify these efforts, the combinatorial complex (CC) framework \cite{hajij2023topological} was introduced, providing a general message-passing paradigm that encompasses SCs, CWs, and hypergraphs. Parallel to these developments, Sheaf Neural Networks (SNNs) \cite{HGh19, hansen2020sheaf, sheaf2022, battiloro2022tangent, battiloro2024tangent, barbero2022sheaf} have demonstrated the effectiveness of sheaf-based modeling in handling heterophily and capturing localized topological constraints.
+
+While these works substantially extend graph representation learning to higher-dimensional domains, they largely remain confined to direct message passing within predefined complexes. Such approaches often exhibit limited generalization to unseen graphs with substantially different topologies, a limitation that poses significant challenges for real-world applications where structural variability is the norm. In contrast, our work goes beyond intra-complex learning by \textit{retrieving and integrating multi-dimensional cellular topologies} from external corpora, enabling topology-aware retrieval and multi-level reasoning that enhance adaptability across diverse graph scenarios.
+%While these works substantially extend graph representation learning to higher-order domains, most approaches remain limited to direct message passing within predefined complexes. In contrast, our work further investigates how to \textit{retrieve and integrate multi-dimensional cellular topologies} from external corpora, enabling both topological-aware retrieval and multi-level reasoning that go beyond conventional intra-complex learning.
+%\section{Algorithm}
+
+
+%\subsection{Algorithm 1: Cellular Representation and Knowledge Extraction}
+
+%In Algorithm~\ref{alg:cellular_representation}, we outline the process of constructing a 2-dimensional regular cell complex from a given task graph and utilizing it for knowledge extraction. The algorithm follows these key steps:
+
+%The process begins by initializing the 0-cell, 1-cell, and 2-cell structures, denoted as \(X^{(0)}\), \(X^{(1)}\), and \(X^{(2)}\), respectively. These represent the nodes, edges, and topological cycles in the graph.
+
+%Next, the algorithm constructs the Fundamental Cycle-Guided Complex by iterating over the edges of the graph. For each edge \((u, v)\), the algorithm computes a fundamental cycle \(c_e\) and creates a corresponding 2-cell \(x^2_e\), which is then attached to the 1-skeleton \(X^{(1)}\) and added to the 2-skeleton \(X^{(2)}\).
+
+%In the Multi-dimensional Topological Message Passing (MTMP) step, the algorithm propagates information across the cell complex. First, it initializes embeddings for each node in the 0-skeleton and updates them by passing messages along the edges (1-skeleton). The information is propagated from 0-cells to 1-cells, updating the embeddings of the edges themselves.
+
+%The Cell Complex Knowledge Base is then constructed by iterating over the \(k\)-hop neighborhoods around each node. Through inverse importance sampling, the algorithm selects a master 0-cell and constructs its corresponding ego graph \(G(v)\), augmenting it with topological features that capture the local structure of the graph.
+
+%Finally, the algorithm defines key-value pairs for each local cell complex \(X_\sigma\), where the key \(k_\sigma\) contains the current timestamp, the master 0-cell embedding, and the pooled topological feature from the 2-cells. The value \(v_\sigma\) includes the output vectors and embeddings of the constituent cells. These key-value pairs are stored in the knowledge base, which represents the extracted cellular information and its corresponding task-specific output.
+
+%The algorithm returns the constructed cellular representation \(X\) and its associated knowledge base, ready to be used for downstream tasks such as graph inference or topology-aware learning.
+
+
+%\subsection{Algorithm 2: Retrieval-Augmented Graph Inference with Topological Complexes}
+
+%We outline the process of retrieval-augmented graph inference with topological complexes in Algorithm~\ref{alg:graph_inference}. The algorithm first applies the lifting map to the query graph to compute the query key, which is used to retrieve the top-K cell complexes based on a similarity score that combines temporal similarity and cosine similarity of topological features.
+
+%Next, the algorithm performs intra-complex aggregation for each retrieved cell complex, using Multi-dimensional Topological Message Passing (MTMP) to propagate information from the constituent cells to the master 0-cell and update its embedding. This is followed by inter-complex aggregation, where knowledge from the master 0-cells of the retrieved complexes is injected into the query center 0-cell using MTMP, updating both the query center embedding and the task-specific output.
+
+%After aggregating the embeddings and task-specific outputs, the fused representations are passed through a multi-layer perceptron (MLP) to obtain a structure-aware output. This output is then combined with the task-specific output to make the final prediction.
+
+%Finally, the algorithm integrates the Cellular Topological Contrastive Learning (CTCL) loss into the training loop. For each 2-cell, degree-based importance sampling is used to generate positive and negative 0-cell subsets, and contrastive loss is computed using InfoNCE. This loss is integrated into the overall loss function and used during backpropagation to update the embeddings. The final enhanced output is obtained by combining the fused embeddings with the task-specific output.
+
+
+
+%\begin{algorithm}[!t]
+%\caption{Cellular Representation and Knowledge Extraction}
+
+%\label{alg:cellular_representation}
+%\begin{algorithmic}[1]
+%\REQUIRE Task graph $G = (V, E)$, number of hops $k$, importance sampling weight $\alpha$, node dropout rate
+%\ENSURE Constructed 2-dimensional regular cell complex $X$
+
+%\STATE Initialize $X^{(0)}$, $X^{(1)}$, and $X^{(2)}$
+
+%\STATE // Step 1: Construct Fundamental Cycle-Guided Complex
+%\FOR{each edge $(u, v) \in G$}
+%\STATE Compute fundamental cycle $c_e$ and create 2-cell %$x^2_e$
+%\STATE Attach $x^2_e$ to $X^{(1)}$ and add to $X^{(2)}$
+%\ENDFOR
+
+%\STATE // Step 2: Multi-dimensional Topological Message Passing (MTMP)
+%\FOR{each node $x \in X^{(0)}$}
+%\STATE Initialize embedding $h_x$
+%\FOR{each edge $(u, v) \in X^{(1)}$}
+%\STATE Propagate information along edge $(u, v)$, update embeddings $h_u$ and $h_v$
+%\ENDFOR
+%\ENDFOR
+
+%\FOR{each edge $e \in X^{(1)}$}
+%\STATE Propagate information from 0-cells to 1-cells, update $h_e$
+%\ENDFOR
+
+%\STATE // Step 3: Construct Cell Complex Knowledge Base
+%\FOR{each $k$-hop neighborhood around node $v$}
+%\STATE Perform inverse importance sampling to select master 0-cell $v$
+%\STATE Construct ego graph $G(v)$ and augment with topological features
+%\ENDFOR
+
+%\STATE // Step 4: Define Key-Value Pairs for Cell Complexes
+%\FOR{each local cell complex $X_\sigma$}
+%\STATE Define key $k_\sigma = [\tau, h_m^0, h_\sigma^2]$ and value $v_\sigma = { [o_i, h_i] \mid x_i \in X_\sigma }$
+%\ENDFOR
+
+%\STATE Store $(k_\sigma, v_\sigma)$ in knowledge base
+
+%\RETURN Constructed cellular representation $X$ and knowledge base $X$
+%\end{algorithmic}
+%\end{algorithm}
+
+
+
+
+
+
+% \begin{algorithm}[htbp]
+% \caption{Retrieval-Augmented Graph Inference with Topological Complexes}
+% \label{alg:graph_inference}
+% \begin{algorithmic}[1]
+% \REQUIRE Query graph $\mathcal{G}_q$, cell complex knowledge base $X = \{ X_{\sigma} \}$, similarity weight vector $\mathbf{w} = [w_1, w_2, w_3]$, decay rate $\eta$
+% \ENSURE Enhanced query complex $X_q$
+
+% \STATE Apply the lifting map $f: \mathcal{G}_q \to X$ to the query graph $\mathcal{G}_q$
+% \STATE Compute the query key $\bm{k}_q = [\tau_q, \bm{h}_c^0, \bm{h}_q^2]$
+% \STATE \quad where $\tau_q$ is the timestamp, $\bm{h}_c^0$ is the embedding of the central 0-cell, and $\bm{h}_q^2$ is the pooled two-dimensional feature of query complex $\mathcal{G}_q$
+
+% \FOR{each cell complex $X_\sigma \in X$}
+%     \STATE Compute the key $\bm{k}_b = [\tau_b, \bm{h}_m^0, \bm{h}_\sigma^2]$ for $X_\sigma$
+%     \STATE Compute the similarity score $S(\bm{k}_q, \bm{k}_b)$ as:
+%     \[
+%     S(\bm{k}_q, \bm{k}_b) = \mathbf{w} \times \left[ S_{\tau}(\tau_q, \tau_b), S_0(\bm{h}_c^0, \bm{h}_m^0), S_2(\bm{h}_q^2, \bm{h}_\sigma^2) \right]^T
+%     \]
+    
+% \ENDFOR
+
+% \STATE Sort the cell complexes by their similarity scores
+% \STATE Retrieve top-K cell complexes $X_{\text{topK}}$
+
+% \FOR{each retrieved cell complex $X_\sigma \in X_{\text{topK}}$}
+%     \STATE Perform intra-complex aggregation using MTMP to propagate information from the constituent cells to the master 0-cell $x_m^0$
+%     \STATE Update the embedding of the master 0-cell $\bm{z}_m^0 = \text{MTMP}(\{\bm{z}_i \mid x_i \in X_\sigma\})$
+% \ENDFOR
+
+% \FOR{each query center 0-cell $x_c^0$ in $\mathcal{G}_q$}
+%     \STATE Perform inter-complex aggregation using MTMP to inject knowledge from each master 0-cell $x_m^0$ in $X_{\text{topK}}$
+%     \STATE Update query center embedding $\bm{h} = \text{MTMP}(\{ \bm{h}_i \mid x_i \in X_q \cup \{x_m^0\} \})$
+%     \STATE Update task-specific output $\bm{o}_c = \text{MTMP}(\{ \bm{o}_i^0 \mid x_i^0 \in \{x_m^0\} \})$
+% \ENDFOR
+
+
+% \STATE Aggregate the hidden state $\bm{h}^0_c$ of the center 0-cell $x_c^0$ and the pooled 2-cell feature $\bm{h}^2_q$
+% \STATE Pass the aggregated embeddings through a multi-layer perceptron (MLP) to obtain a structure-aware output:
+% \[
+% \hat{\bm{o}}_c = \gamma \bm{o}_c + (1 - \gamma) \text{MLP}([\bm{h}^0_c, \bm{h}^2_q])
+% \]
+% where $\gamma \in [0, 1]$ is a reweighting hyperparameter
+
+% \STATE \textbf{Cellular Topological Contrastive Learning (CTCL) Loss}:
+% \STATE For each 2-cell $x^2_k \in X^{(2)}$, sample two subsets of 0-cells $\tilde{\mathcal{X}}^{(0)}_{k,1}$ and $\tilde{\mathcal{X}}^{(0)}_{k,2}$ using degree-based importance sampling
+% \STATE Compute embeddings for each subset:
+% \[
+% \tilde{\bm{h}}_{k,1} = \frac{1}{|\tilde{\mathcal{X}}^{(0)}_{k,1}|} \sum_{x^0 \in \tilde{\mathcal{X}}^{(0)}_{k,1}} \bm{h}_{x^0} + \alpha \cdot \mathcal{N}(0, 1)
+% \]
+% \[
+% \tilde{\bm{h}}_{k,2} = \frac{1}{|\tilde{\mathcal{X}}^{(0)}_{k,2}|} \sum_{x^0 \in \tilde{\mathcal{X}}^{(0)}_{k,2}} \bm{h}_{x^0} + \alpha \cdot \mathcal{N}(0, 1)
+% \]
+% \STATE Compute the contrastive loss using InfoNCE:
+% \[
+% \mathcal{L}_{\text{CTCL}} = - \frac{1}{N} \sum_{k=1}^{N} \log \frac{\exp\left( \text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{k,2}) / \tau \right)}{\sum_{j \neq k} \exp\left( \text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{j,2}) / \tau \right)}
+% \]
+
+% \STATE \textbf{Final Prediction}: Combine task-specific output and structure-aware output:
+% \[
+% \hat{\bm{o}}_c = \gamma \bm{o}_c + (1 - \gamma) \text{MLP}([\bm{h}^0_c, \bm{h}^2_q])
+% \]
+
+% \RETURN Enhanced output $\hat{\bm{o}}_c$
+% \end{algorithmic}
+% \end{algorithm}
+
+
+%\begin{algorithm}[!t]
+%\caption{Retrieval-Augmented Graph Inference with Topological Complexes}
+%\label{alg:graph_inference}
+%\begin{algorithmic}[1]
+%\REQUIRE Query graph $\mathcal{G}_q$, cell complex knowledge base $X = \{ X_{\sigma} \}$, similarity weight vector $\mathbf{w}$, decay rate $\eta$
+%\ENSURE Enhanced query complex $X_q$
+
+%\STATE Apply lifting map $f: \mathcal{G}_q \to X$ and compute query key $\bm{k}_q = [\tau_q, \bm{h}_c^0, \bm{h}_q^2]$
+
+%\FOR{each $X_\sigma \in X$}
+%    \STATE Compute key $\bm{k}_b = [\tau_b, \bm{h}_m^0, \bm{h}_\sigma^2]$
+%    \STATE Compute similarity score:
+%    \[
+%    S(\bm{k}_q, \bm{k}_b) = \mathbf{w} \cdot [ S_{\tau}(\tau_q, \tau_b), S_0(\bm{h}_c^0, \bm{h}_m^0), S_2(\bm{h}_q^2, \bm{h}_\sigma^2) ]
+%    \]
+%\ENDFOR
+
+%\STATE Retrieve top-K cell complexes $X_{\text{topK}}$ based on similarity scores
+
+%\FOR{each $X_\sigma \in X_{\text{topK}}$}
+%    \STATE // Intra-complex aggregation: Use MTMP to update master 0-cell embedding $\bm{z}_m^0$
+%\ENDFOR
+
+%\FOR{each query center 0-cell $x_c^0$ in $\mathcal{G}_q$}
+%    \STATE // Inter-complex aggregation: Inject knowledge from master 0-cells via MTMP and update query center embedding $\bm{h}$ and task-specific output $\bm{o}_c$
+%\ENDFOR
+
+%\STATE Aggregate embeddings and task outputs:
+%\[
+%\hat{\bm{o}}_c = \gamma \bm{o}_c + (1 - \gamma) \text{MLP}([\bm{h}^0_c, \bm{h}^2_q])
+%\]
+
+%\STATE // CTCL Loss integration during backpropagation:
+%\STATE For each 2-cell $x^2_k \in X^{(2)}$, sample subsets %$\tilde{\mathcal{X}}^{(0)}_{k,1}, \tilde{\mathcal{X}}^{(0)}_{k,2}$ using importance sampling
+%\STATE Compute contrastive loss $\mathcal{L}_{\text{CTCL}}$:
+%\[
+%\mathcal{L}_{\text{CTCL}} = - \frac{1}{N} \sum_{k=1}^{N} \log \frac{\exp\left( \text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{k,2}) / \tau \right)}{\sum_{j \neq k} \exp\left( \text{sim}(\tilde{\bm{h}}_{k,1}, \tilde{\bm{h}}_{j,2}) / \tau \right)}
+%\]
+%\STATE Total loss = $\text{Task Loss} + \lambda \cdot \mathcal{L}_{\text{CTCL}}$
+%\STATE Perform backpropagation and update model parameters
+
+%\RETURN Enhanced output $\hat{\bm{o}}_c$
+%\end{algorithmic}
+%\end{algorithm}
+
+
+
+\section{Proofs}
+\subsection{Proofs regarding Proposition \ref{prop.homotopy}}
+\label{app.proof.homotopy}
+\begin{proof}
+\textbf{Contractibility of the spanning tree.}  
+A spanning tree $\mathcal{T}$ is connected and acyclic, hence it is contractible. 
+In topological terms, a contractible subspace can be continuously shrunk to a point within itself.
+
+\textbf{Collapsing a contractible subspace.}  
+Consider the quotient map $\gamma: G \to G/\mathcal{T}$ that identifies all points of $\mathcal{T}$ to a single vertex $v_0$.  
+Collapsing a contractible subspace is a deformation retraction up to homotopy: there exists a continuous map 
+$r: G \to G/\mathcal{T}$ and a homotopy 
+$H: G \times [0,1] \to G$ such that $H(x,0) = x$ and $H(x,1) = r(x)$ for all $x \in G$, with $r \circ \gamma \simeq \mathrm{id}_{G/\mathcal{T}}$.  
+Therefore, $G$ and $G/\mathcal{T}$ are homotopy-equivalent.
+
+\textbf{Induced isomorphism on first homology.}  
+Homotopy-equivalent spaces have isomorphic homology groups.  
+Hence the induced map 
+$\gamma_*: H_1(G;\mathbb{Z}) \to H_1(G/\mathcal{T};\mathbb{Z})$ 
+is an isomorphism.
+
+\textbf{Intuition in graph terms.}  
+The spanning tree $\mathcal{T}$ contains no cycles, so collapsing it does not remove or merge any cycles in $G$.  
+Each fundamental cycle in $G$ (formed by a non-tree edge and the unique tree path connecting its endpoints) is preserved in $G/\mathcal{T}$ as a loop based at the collapsed tree vertex.  
+Therefore, the first homology group $H_1(G)$ — which measures independent cycles — remains unchanged.
+\end{proof}
+
+\subsection{Proofs regarding Proposition \ref{prop.fundamental_cycles}}
+\label{app.proof.fundamental_cycles}
+\begin{proof}
+Let $G=(V,E)$ be a finite connected graph and $\mathcal{T} \subset G$ a spanning tree.
+
+\textbf{Existence and uniqueness of fundamental cycles.}  
+For each non-tree edge $e=(u,v) \in E \setminus \mathcal{T}$, there exists a unique simple path $P_{\mathcal{T}}(u,v)$ in $\mathcal{T}$ connecting $u$ and $v$, by acyclicity of $\mathcal{T}$.  
+Concatenating $e$ with $P_{\mathcal{T}}(u,v)$ defines a unique simple cycle 
+\[
+C_e = e \cup P_{\mathcal{T}}(u,v) \subset G.
+\]  
+Under the quotient map $\gamma: G \to G/\mathcal{T}$ that collapses $\mathcal{T}$ to a point, the tree-path $P_{\mathcal{T}}(u,v)$ is mapped to that point, so $C_e$ becomes a nontrivial loop in $G/\mathcal{T}$.
+
+\textbf{Spanning and independence in homology.}  
+The cyclomatic number of $G$ is $\beta_1(G) = |E| - |V| + 1$, which equals the number of non-tree edges.  
+Thus there are exactly $\beta_1(G)$ fundamental cycles.  
+
+Any cycle in $G$ can be expressed as a linear combination of these fundamental cycles: traversing a cycle, each time a non-tree edge $e$ is encountered, the corresponding $C_e$ can be used to eliminate segments along $\mathcal{T}$.  
+
+These cycles are independent in $H_1(G)$, because under $\gamma$, each fundamental cycle maps to a distinct loop in $G/\mathcal{T}$, and loops around different edges of a wedge of circles are linearly independent in homology.  
+
+Hence the set 
+\[
+\{ [C_e] \mid e \in E \setminus \mathcal{T} \}
+\]
+forms a basis of $H_1(G)$.
+
+\textbf{Topological summary.}  
+Different choices of spanning tree yield different sets of fundamental cycles as edge sets, but the corresponding homology classes always span $H_1(G)$.  
+Therefore, these loops capture all independent cyclic dependencies of $G$, providing a concise topological summary suitable for lifting $G$ into a higher-dimensional cell complex.
+\end{proof}
+
+
+
+
+\section{More Experiment Details}
+\subsection{Datasets Statistics}
+\label{app:dataset_stats}
+\subsubsection{Static Datasets}
+
+\begin{itemize}
+    \item \textbf{PROTEINS} \cite{protein_reference}: This dataset consists of protein graphs, where each node represents a secondary structure and each edge represents a relationship between amino acids or 3D space. The dataset contains 1,113 graphs with an average of 39.06 nodes and 72.82 edges per graph, with a density of 4.8e-2. This dataset is used for both node and graph classification tasks.
+    \item \textbf{COX2} \cite{cox2_reference}: A molecular structure dataset of 467 cyclooxygenase-2 inhibitors. Each node represents an atom, and each edge signifies a chemical bond (single, double, triple, or aromatic). The dataset is used for graph classification tasks, with each graph having an average of 41.22 nodes and 43.45 edges, and a density of 2.6e-2.
+    \item \textbf{ENZYMES} \cite{enzymes_reference}: A dataset of 600 enzymes, labeled into 6 categories according to their top-level enzyme classification. It contains 600 graphs with an average of 32.63 nodes and 62.14 edges, with a density of 5.9e-2. This dataset is used for both node and graph classification tasks.
+    \item \textbf{BZR} \cite{bzr_reference}: A dataset consisting of 405 ligands for the benzodiazepine receptor. The graphs represent each ligand, categorized into two groups. Each graph has an average of 35.75 nodes and 38.36 edges, with a density of 3.0e-2. This dataset is used for graph classification tasks.
+\end{itemize}
+
+\subsubsection{Dynamic Datasets}
+We also use three publicly available datasets for dynamic recommendation (link prediction) tasks:
+
+\begin{itemize}
+    \item \textbf{TAOBAO} : A dataset capturing implicit feedback data from Taobao.com, collected over 10 days. It is used for edge classification tasks, containing 204,168 nodes and 8,795,404 edges, with a density of 8.6e-4.
+    \item \textbf{KOUBEI} : A dataset from Koubei, capturing 9 weeks of user interactions with nearby stores. It contains 221,366 nodes and 3,986,609 edges, with a density of 3.3e-4, used for edge classification tasks.
+    \item \textbf{AMAZON} : A dataset of product reviews from Amazon, spanning 13 weeks. It contains 238,735 nodes and 876,237 edges, with a density of 6.2e-5, used for edge classification tasks.
+\end{itemize}
+These datasets’ detailed statistics are summarized in Table \ref{tab:datasets}. The "Task" column provides information about the type of downstream task conducted on each dataset: "Node" denotes node classification tasks, "Graph" signifies graph classification tasks, and "Edge" indicates tasks related to link prediction. The "Type" column indicates whether the dataset is dynamic or static. For dynamic datasets, the "Snapshot Granularity" denotes the time granularity for each dataset. In our experimental setup, dynamic graphs are partitioned according to snapshots, while static graphs are partitioned either by node or by the entire graph.
+
+% 表格
+% \begin{table}[t]
+% \centering
+% \renewcommand{\arraystretch}{1.15}
+% \setlength{\tabcolsep}{5pt}
+% \footnotesize
+% \caption{Statistics of the experimental datasets.}
+% \label{datasets}
+% \resizebox{\linewidth}{!}{
+% \begin{tabular}{l cc cccc}
+% \toprule
+% \textbf{Statistics} & \multicolumn{2}{c}{\textbf{Dynamic Graphs}} & \multicolumn{4}{c}{\textbf{Static Graphs}} \\
+% \cmidrule(r){2-3} \cmidrule(l){4-7}
+% & KOUBEI & AMAZON & PROTEINS & COX2 & ENZYMES & BZR \\
+% \midrule
+% Nodes / Graph      & 221,366   & 238,735   & 39.06 & 41.22 & 32.63 & 35.75 \\
+% Edges / Graph      & 3,986,609 & 876,237   & 72.82 & 43.45 & 62.14 & 38.36 \\
+% Density            & 3.3e-4    & 6.2e-5    & 4.8e-2 & 2.6e-2 & 5.9e-2 & 3.0e-2 \\
+% Graphs             & 1         & 1         & 1,113 & 467   & 600   & 405 \\
+% Graph Classes      & –         & –         & 2     & 2     & 6     & 2 \\
+% Node Features      & –         & –         & 3     & 1     & 18    & 3 \\
+% \midrule
+% Task               & Edge      & Edge      & Node,Graph & Graph & Node,Graph & Graph \\
+% \bottomrule
+% \end{tabular}
+% }
+
+% \label{tab:datasets}
+% \end{table}
+\subsection{Evaluation Metrics}
+
+\subsubsection{Node and Graph Classification Evaluation}
+For node and graph classification, we use prediction accuracy to measure the model performance.
+
+\subsubsection{Link Prediction Evaluation}
+For link prediction, we evaluate the recall and ranking quality of the recommendation effects following previous studies \cite{link,link2}. We use Recall@k and NDCG@k as evaluation metrics. Note that this task is a binary task. We denote the top-\(k\) largest value as \( \text{rel}_{ij} \), where \( j \in [1,k] \) for node \( v_i \).
+
+\paragraph{Recall@k}
+Recall@k measures the ratio of true positive links contained in the top \(k\) predicted links for each node. It is computed as:
+
+\begin{equation}
+\text{Recall@k} = \frac{1}{n} \sum_{i=1}^{n} \sum_{j=1}^{k} \text{rel}_{ij} \cdot I(A[i:] > 0),
+\end{equation}
+where \( \text{rel}_{ij} = 1 \) if the \( j \)-th predicted link for node \( v_i \) exists, otherwise 0. \( I(\cdot) \) is the indicator function, and if \( A[i:] > 0 \), then \( I(A[i:] > 0) = 1 \).
+
+\paragraph{NDCG@k (Normalized Discounted Cumulative Gain)}
+NDCG@k is computed by normalizing DCG@k (Discounted Cumulative Gain), which accounts for the position of correctly predicted links. DCG@k is defined as:
+
+\begin{equation}
+\text{DCG@k} = \frac{1}{n} \sum_{i=1}^{n} \sum_{j=1}^{k} \frac{\text{rel}_{ij}}{\log_2(j+1)}.
+\end{equation}
+
+
+\subsection{Baseline Details}
+
+In this section, we present the details of baselines.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{8pt}
+\footnotesize
+\caption{Baseline Code URLs of Github Repository}
+\label{tab:baseline_urls}
+\begin{tabular}{l l l}
+\toprule
+\textbf{Baseline} & \textbf{Type} & \textbf{Code Repo URL} \\
+\midrule
+GCN              & Static        & \url{https://github.com/tkipf/gcn} \\
+GraphSAGE        & Static        & \url{https://github.com/williamleif/GraphSAGE} \\
+GAT              & Static        & \url{https://github.com/PetarV-/GAT} \\
+GIN              & Static        & \url{https://github.com/weihua916/powerful-gnns} \\
+LightGCN         & Dynamic       & \url{https://github.com/kuandeng/LightGCN} \\
+SGL              & Dynamic       & \url{https://github.com/wujcan/SGL-Torch} \\
+MixGCF           & Dynamic       & \url{https://github.com/Wu-Xi/SimGCL-MixGCF} \\
+SimGCL           & Dynamic       & \url{https://github.com/Wu-Xi/SimGCL-MixGCF} \\
+GraphPro         & Dynamic, Static & \url{https://github.com/HKUDS/GraphPro} \\
+GraphPrompt      & Dynamic, Static & \url{https://github.com/Starlien95/GraphPrompt} \\
+PRODIGY          & Dynamic, Static & \url{https://github.com/snap-stanford/prodigy} \\
+RAGraph          & Dynamic, Static & \url{https://github.com/Artessay/RAGraph} \\
+ProNoG          & Dynamic, Static & \url{https://github.com/Jaygagaga/ProNoG} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{GCN \cite{gcn_reference}}: GCN is an end-to-end learning framework for graph-structured data. It utilizes neighborhood aggregation to integrate structural information, which is particularly effective in node classification and graph classification tasks.
+
+\paragraph{GraphSAGE \cite{graphsage_reference}}: GraphSAGE is a general and inductive framework that leverages node feature information (e.g., text attributes) to efficiently generate node embeddings for previously unseen data.
+
+\paragraph{GAT \cite{gat_reference}}: GAT is a spatial domain method, which aggregates information through the attention-learned edge weights.
+
+\paragraph{GIN \cite{gin_reference}}: GIN utilizes a multi-layer perceptron to sum the results of GNN and learns a parameter to control the residual connection.
+
+\paragraph{LightGCN \cite{lightgcn_reference}}: LightGCN learns user and item embeddings by linearly propagating them on the user-item interaction graph, and uses the weighted sum of the embeddings learned at all layers as the final embedding.
+
+\paragraph{SGL \cite{sgl_reference}}: SGL supplements the classical supervised task of recommendation with an auxiliary self-supervised task, which reinforces node representation learning via self-discrimination.
+
+\paragraph{MixGCF \cite{mixgcf_reference}}: MixGCF generates synthetic negatives by aggregating embeddings from different layers of raw negatives' neighborhoods to perform collaborative filtering.
+
+\paragraph{SimGCL \cite{simgcl_reference}}: SimGCL applies unsupervised contrastive learning to enhance representation learning, making it suitable for link prediction tasks. It is applied to dynamic graphs to test its adaptability and performance.
+
+\paragraph{GraphPro \cite{graphpro_reference}}: GraphPro extends GraphPrompt by introducing spatial and temporal prompts tailored for dynamic graph learning, enhancing the ability to capture both structural and temporal relationships within graph data.
+
+\paragraph{GraphPrompt \cite{graphprompt_reference}}: GraphPrompt integrates pre-training and downstream tasks using a unified template approach and employs task-specific prompts to enhance sub-task learning, applicable to both dynamic and static graph contexts.
+
+\paragraph{PRODIGY \cite{prodigy_reference}}: PRODIGY focuses on facilitating downstream tasks through in-context examples and learning from the X → Y paradigm. It is implemented to enhance learning in both dynamic and static graphs by leveraging contextual learning strategies.
+
+\paragraph{RAGraph \cite{JiangQXZZ00X0W24}}: RAGraph is a general retrieval-augmented graph learning framework that integrates external graph knowledge into pre-trained GNNs. It builds a key-value toy graph library, retrieves similar toy graphs via multi-dimensional similarity, injects knowledge into query graphs through intra/inter-propagation, and supports multi-graph tasks (node classification, link prediction, etc.) on static/dynamic graphs with high performance even without fine-tuning.
+
+
+
+
+
+\paragraph{ProNoG \cite{yu2024nonhomophilic}}: ProNoG is a pre-training and prompt learning framework for non-homophilic graphs. It uses non-homophily tasks (e.g., GraphCL) for pre-training to learn universal graph properties, and designs a condition-net for downstream adaptation. The condition-net generates node-specific prompts by reading multi-hop neighborhood features (weighted by node similarity) and conditioning on node non-homophilic patterns, then adjusts node embeddings via element-wise product for fine-grained node/graph classification, especially in few-shot scenarios.
+
+
+
+\subsection{Further Study}  
+
+We further evaluate the few-shot performance of ReTAG against baselines (RAGraph, Vanilla, GAT, GIN, GCN, GraphSAGE) on four datasets (PROTEINS, BZR, ENZYMES, COX2), as shown in Figure~\ref{fig:fewshot-study}. Accuracy increases consistently as the number of shots grows from $1$ to $5$, confirming that additional supervision benefits few-shot adaptation. More importantly, ReTAG consistently outperforms all baselines across datasets and shot settings.  
+
+On \textbf{PROTEINS}, ReTAG improves over RAGraph by an average of +5.0pp, with a maximum margin of +8.9pp at $2$-shot. On \textbf{BZR}, it achieves +3.6pp on average, maintaining superiority at all shots. On \textbf{ENZYMES}, ReTAG secures an average gain of +3.6pp, demonstrating robustness under low-accuracy regimes. On \textbf{COX2}, it yields a stable +2.5pp improvement on average, peaking at +4.5pp at $3$-shot. Overall, ReTAG delivers consistent gains of roughly +2--6pp over the best baseline across datasets and shot scenarios.  
+
+These improvements stem from retrieval-augmented topology reasoning: lifting graphs into higher-dimensional cell complexes enables retrieval based on both semantic and topological alignment, while MTMP and CTCL further enhance representation robustness. Consequently, ReTAG achieves both higher accuracy and more stable performance than competing methods in few-shot settings.  
+
+
+
+
+
+
+
+\section{Statement on LLM Usage}
+We acknowledge the use of large language models (LLMs) as general-purpose assistive tools. 
+Specifically, LLMs were used for polishing and improving the clarity of writing. 
+However, all research ideas, methodological designs, experiments, and analysis were conceived, implemented, and validated by the authors. 
+The LLM did not generate novel research contributions nor play the role of a scientific collaborator.
+
+\section{Statement on Ethic and Reproducibility } 
+This work adheres to the \href{https://iclr.cc/public/CodeOfEthics}{ICLR Code of Ethics}. 
+Our study does not involve human subjects, personally identifiable information, or sensitive private data. 
+All datasets are publicly available and commonly adopted in the literature. 
+We have carefully considered potential societal impacts: the proposed methodology is intended to advance representation learning and retrieval in cell complexes, without foreseeable risks of misuse. 
+To ensure fairness, we mitigate bias in node sampling via inverse importance strategies. 
+No conflicts of interest or external sponsorship influenced the research. 
+For reproducibility, all datasets are publicly accessible, preprocessing steps are described in the supplementary material, and a self-contained code package is provided as part of the submission.

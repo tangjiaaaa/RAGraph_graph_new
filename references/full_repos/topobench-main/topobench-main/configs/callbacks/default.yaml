@@ -1,0 +1,30 @@
+defaults:
+  - model_checkpoint
+  - early_stopping
+  - model_summary
+  - model_timer
+  - best_epoch_metrics
+  - _self_
+
+model_checkpoint:
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch:03d}"
+  monitor: ${get_monitor_metric:${dataset.parameters.task},${dataset.parameters.monitor_metric}}
+  mode: "${get_monitor_mode:${dataset.parameters.task}}"
+  auto_insert_metric_name: False
+  save_weights_only: False
+  save_top_k: 1
+  save_last: False
+  #filename: 'epoch{epoch:02d}-val_loss{val/loss:.2f}'
+
+early_stopping:
+  monitor: ${get_monitor_metric:${dataset.parameters.task},${dataset.parameters.monitor_metric}}
+  patience: 25
+  mode: "${get_monitor_mode:${dataset.parameters.task}}"
+
+model_summary:
+  max_depth: -1
+
+learning_rate_monitor:
+  _target_: lightning.pytorch.callbacks.LearningRateMonitor
+  logging_interval: "epoch"
